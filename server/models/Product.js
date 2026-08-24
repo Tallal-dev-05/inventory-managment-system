@@ -31,7 +31,6 @@ const productSchema = new mongoose.Schema(
       type: String,
       trim: true,
       maxlength: 500,
-      optional: true,
     },
 
     costPrice: {
