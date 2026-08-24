@@ -1,0 +1,787 @@
+.sales-page {
+  min-height: 100vh;
+  max-width: 1440px;
+  margin: auto;
+  padding: 32px 40px 48px;
+  background: #f7faf9;
+  color: #1d2939;
+  font: 14px Inter, Segoe UI, Arial, sans-serif;
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.sales-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.sales-title {
+  margin: 9px 0 4px;
+  font-size: 30px;
+  letter-spacing: -0.8px;
+}
+
+.sales-subtitle {
+  margin: 0;
+  color: #667085;
+}
+
+.dashboard-back-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #108653;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dashboard-back-button:hover {
+  text-decoration: underline;
+}
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.primary-button,
+.secondary-button {
+  border-radius: 8px;
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.primary-button {
+  border: 1px solid #19a66a;
+  background: #19a66a;
+  color: #fff;
+}
+
+.primary-button:hover {
+  background: #108653;
+  border-color: #108653;
+}
+
+.primary-button:active,
+.secondary-button:active,
+.invoice-button:active {
+  transform: translateY(1px);
+}
+
+.secondary-button {
+  border: 1px solid #d5ddd9;
+  background: #fff;
+  color: #46545b;
+}
+
+.secondary-button:hover {
+  background: #f3f6f5;
+  border-color: #c8d3ce;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   SUCCESS / ERROR
+========================================== */
+
+.success-box,
+.error-box {
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  border: 1px solid;
+  border-radius: 9px;
+}
+
+.success-box {
+  background: #effbf4;
+  border-color: #b9e7ca;
+  color: #087443;
+}
+
+.error-box {
+  background: #fff5f5;
+  border-color: #fecaca;
+  color: #b42318;
+}
+
+/* ==========================================
+   CARDS
+========================================== */
+
+.sale-form-card,
+.sales-table-card {
+  border: 1px solid #e7ecea;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 2px 8px #17382b08;
+}
+
+.sale-form-card {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+/* ==========================================
+   FORM HEADER
+========================================== */
+
+.sale-form-header,
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.sale-form-header {
+  margin-bottom: 20px;
+}
+
+.sale-form-header h2,
+.table-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-button {
+  border: 0;
+  background: #f3f6f5;
+  color: #536169;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close-button:hover {
+  background: #e8eeeb;
+}
+
+/* ==========================================
+   SALE FORM
+========================================== */
+
+.sale-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.form-field label {
+  font-size: 12px;
+  font-weight: 750;
+  color: #34434a;
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d8e1dd;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font: inherit;
+  outline: 0;
+  background: #fff;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  border-color: #19a66a;
+  box-shadow: 0 0 0 3px #19a66a19;
+}
+
+.form-field input[readonly] {
+  background: #f5f8f7;
+  color: #526168;
+  font-weight: 700;
+}
+
+.form-field textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* ==========================================
+   SALES TABLE
+========================================== */
+
+.sales-table-card {
+  overflow: hidden;
+}
+
+.table-header {
+  padding: 20px 22px;
+  border-bottom: 1px solid #e7ecea;
+}
+
+.table-header span {
+  color: #77868b;
+  font-size: 12px;
+}
+
+.sales-table-wrapper {
+  overflow-x: auto;
+}
+
+.sales-table {
+  width: 100%;
+  min-width: 1250px;
+  border-collapse: collapse;
+}
+
+.sales-table th {
+  padding: 12px 18px;
+  background: #f8fbfa;
+  color: #738188;
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sales-table td {
+  padding: 14px 18px;
+  border-top: 1px solid #edf2ef;
+  color: #45545a;
+  vertical-align: middle;
+}
+
+.sales-table tbody tr:hover {
+  background: #f9fcfa;
+}
+
+/* ==========================================
+   EMPTY STATE
+========================================== */
+
+.empty-state {
+  text-align: center;
+  padding: 55px 20px;
+  color: #667085;
+}
+
+.empty-state h3 {
+  margin: 0 0 7px;
+  color: #1d2939;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+/* ==========================================
+   INVOICE DOWNLOAD BUTTON
+========================================== */
+
+.invoice-button {
+  border: 1px solid #19a66a;
+  background: #effbf4;
+  color: #108653;
+  padding: 7px 12px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.invoice-button:hover {
+  background: #19a66a;
+  color: #fff;
+}
+
+/* ==========================================
+   INVOICE MODAL OVERLAY
+========================================== */
+
+.invoice-modal-overlay {
+  position: fixed;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.55);
+
+  z-index: 1000;
+
+  overflow-y: auto;
+}
+
+/* ==========================================
+   INVOICE MODAL
+========================================== */
+
+.invoice-modal {
+  width: 100%;
+  max-width: 760px;
+  max-height: 92vh;
+
+  background: #fff;
+
+  border: 1px solid #e7ecea;
+  border-radius: 14px;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.22);
+
+  overflow-y: auto;
+}
+
+/* ==========================================
+   INVOICE MODAL HEADER
+========================================== */
+
+.invoice-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding: 20px 24px;
+
+  border-bottom: 1px solid #e7ecea;
+}
+
+.invoice-modal-header h2 {
+  margin: 0 0 5px;
+
+  font-size: 20px;
+
+  color: #1d2939;
+}
+
+.invoice-modal-header p {
+  margin: 0;
+
+  color: #667085;
+
+  font-size: 13px;
+}
+
+/* ==========================================
+   INVOICE PREVIEW
+========================================== */
+
+.invoice-preview {
+  margin: 24px;
+  padding: 25px;
+
+  border: 1px solid #e3e9e6;
+  border-radius: 10px;
+
+  background: #fff;
+}
+
+/* ==========================================
+   INVOICE TOP
+========================================== */
+
+.invoice-preview-top {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding-bottom: 20px;
+
+  border-bottom: 1px solid #e7ecea;
+}
+
+.invoice-preview-top h1 {
+  margin: 0;
+
+  font-size: 24px;
+
+  letter-spacing: -0.5px;
+
+  color: #19a66a;
+}
+
+.invoice-preview-top p {
+  margin: 4px 0 0;
+
+  color: #667085;
+
+  font-size: 12px;
+}
+
+.invoice-number {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  gap: 4px;
+}
+
+.invoice-number strong {
+  color: #1d2939;
+
+  font-size: 15px;
+}
+
+.invoice-number span {
+  color: #667085;
+
+  font-size: 12px;
+}
+
+/* ==========================================
+   INVOICE CUSTOMER / DATE
+========================================== */
+
+.invoice-info {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 30px;
+
+  padding: 22px 0;
+}
+
+.invoice-info div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+.invoice-info span {
+  color: #667085;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.04em;
+}
+
+.invoice-info strong {
+  color: #1d2939;
+
+  font-size: 14px;
+}
+
+/* ==========================================
+   INVOICE PRODUCT
+========================================== */
+
+.invoice-product {
+  display: grid;
+
+  grid-template-columns:
+    2fr 1fr 1fr 1.5fr;
+
+  gap: 15px;
+
+  padding: 16px;
+
+  background: #f7faf9;
+
+  border: 1px solid #e7ecea;
+
+  border-radius: 9px;
+}
+
+.invoice-product div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+
+  min-width: 0;
+}
+
+.invoice-product span {
+  color: #667085;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.04em;
+}
+
+.invoice-product strong {
+  color: #1d2939;
+
+  font-size: 13px;
+
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================
+   INVOICE TOTAL
+========================================== */
+
+.invoice-total {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: flex-end;
+
+  gap: 25px;
+
+  padding: 22px 0;
+
+  border-bottom: 1px solid #e7ecea;
+}
+
+.invoice-total span {
+  color: #34434a;
+
+  font-size: 14px;
+
+  font-weight: 700;
+}
+
+.invoice-total strong {
+  color: #19a66a;
+
+  font-size: 21px;
+}
+
+/* ==========================================
+   INVOICE NOTES
+========================================== */
+
+.invoice-notes {
+  padding-top: 18px;
+}
+
+.invoice-notes span {
+  color: #667085;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.04em;
+}
+
+.invoice-notes p {
+  margin: 6px 0 0;
+
+  color: #45545a;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+
+  overflow-wrap: anywhere;
+}
+
+/* ==========================================
+   INVOICE FOOTER
+========================================== */
+
+.invoice-thank-you {
+  margin-top: 28px;
+
+  text-align: center;
+
+  color: #667085;
+
+  font-size: 12px;
+}
+
+/* ==========================================
+   INVOICE MODAL ACTIONS
+========================================== */
+
+.invoice-modal-actions {
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 10px;
+
+  padding: 18px 24px;
+
+  border-top: 1px solid #e7ecea;
+
+  background: #fafcfb;
+}
+
+/* ==========================================
+   DONE BUTTON
+========================================== */
+
+.invoice-modal-actions .primary-button {
+  min-width: 100px;
+}
+
+/* ==========================================
+   EDIT BUTTON
+========================================== */
+
+.invoice-modal-actions .secondary-button:first-child {
+  border-color: #d5ddd9;
+}
+
+/* ==========================================
+   RESPONSIVE - TABLET
+========================================== */
+
+@media (max-width: 800px) {
+  .sales-page {
+    padding: 22px 16px;
+  }
+
+  .sales-header {
+    flex-direction: column;
+  }
+
+  .sale-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .invoice-modal-overlay {
+    padding: 15px;
+  }
+
+  .invoice-modal {
+    max-height: 94vh;
+  }
+
+  .invoice-product {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ==========================================
+   RESPONSIVE - MOBILE
+========================================== */
+
+@media (max-width: 500px) {
+  .sale-form-card {
+    padding: 17px;
+  }
+
+  .sale-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .full-width {
+    grid-column: auto;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions button {
+    width: 100%;
+  }
+
+  .invoice-modal-overlay {
+    padding: 8px;
+  }
+
+  .invoice-modal {
+    border-radius: 10px;
+  }
+
+  .invoice-modal-header {
+    padding: 16px;
+  }
+
+  .invoice-preview {
+    margin: 14px;
+    padding: 16px;
+  }
+
+  .invoice-preview-top {
+    flex-direction: column;
+  }
+
+  .invoice-number {
+    align-items: flex-start;
+  }
+
+  .invoice-info {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .invoice-product {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-total {
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .invoice-modal-actions {
+    flex-direction: column-reverse;
+    padding: 16px;
+  }
+
+  .invoice-modal-actions button {
+    width: 100%;
+  }
+}
