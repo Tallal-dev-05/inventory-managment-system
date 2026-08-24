@@ -240,6 +240,10 @@ function Sales() {
   const [invoiceSale, setInvoiceSale] =
     useState(null);
 
+  // When true the invoice modal is view-only (history view)
+  const [invoiceViewOnly, setInvoiceViewOnly] =
+    useState(false);
+
   // ==========================================
   // EDIT MODE
   // ==========================================
@@ -558,6 +562,7 @@ function Sales() {
       // ========================================
 
       setInvoiceSale(updatedSale);
+      setInvoiceViewOnly(false);
 
       // ========================================
       // REFRESH PRODUCTS
@@ -667,6 +672,53 @@ function Sales() {
   }
 
   // ==========================================
+  // EDIT FROM TABLE ROW
+  // ==========================================
+
+  function handleEditRow(sale) {
+    if (!sale) return;
+
+    const productId = sale.product?._id || sale.product;
+
+    let saleDate = "";
+
+    if (sale.saleDate) {
+      const date = new Date(sale.saleDate);
+
+      if (!Number.isNaN(date.getTime())) {
+        saleDate = date.toISOString().split("T")[0];
+      }
+    }
+
+    setFormData({
+      productId: productId || "",
+
+      customerName:
+        sale.customerName === "Walk-in Customer"
+          ? ""
+          : sale.customerName || "",
+
+      quantity: sale.quantity || "",
+
+      sellingPrice: sale.sellingPrice ?? "",
+
+      saleDate,
+
+      notes: sale.notes || "",
+    });
+
+    setEditingSaleId(sale._id);
+
+    setInvoiceSale(null);
+
+    setShowForm(true);
+
+    setError("");
+
+    setSuccess("");
+  }
+
+  // ==========================================
   // DONE / FINALIZE SALE
   // ==========================================
 
@@ -753,6 +805,7 @@ function Sales() {
 
   function closeInvoice() {
     setInvoiceSale(null);
+    setInvoiceViewOnly(false);
   }
 
   // ==========================================
@@ -823,12 +876,14 @@ function Sales() {
 
         </div>
 
-        <button
-          className="primary-button"
-          onClick={openNewSale}
-        >
-          + Add Sale
-        </button>
+        {!showForm && (
+          <button
+            className="primary-button"
+            onClick={openNewSale}
+          >
+            + Add Sale
+          </button>
+        )}
 
       </div>
 
@@ -1286,15 +1341,26 @@ function Sales() {
 
                         <button
                           type="button"
+                          className="secondary-button"
+                          onClick={() => {
+                            setInvoiceSale(sale);
+                            setInvoiceViewOnly(true);
+                          }}
+                        >
+                          View
+                        </button>
+
+                        <button
+                          type="button"
                           className="invoice-button"
                           onClick={() =>
-                            downloadInvoice(
-                              sale
-                            )
+                            downloadInvoice(sale)
                           }
                         >
                           Download
                         </button>
+
+                        {/* Edit removed from sales history rows */}
 
                       </td>
 
@@ -1569,56 +1635,55 @@ function Sales() {
             ================================== */}
 
             <div className="invoice-modal-actions">
+              {invoiceViewOnly ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    downloadInvoice(invoiceSale)
+                  }
+                  disabled={finalizing}
+                >
+                  Download Invoice
+                </button>
+              ) : (
+                <>
+                  {/* EDIT */}
 
-              {/* EDIT */}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={handleEditInvoice}
+                    disabled={finalizing}
+                  >
+                    Edit
+                  </button>
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={
-                  handleEditInvoice
-                }
-                disabled={
-                  finalizing
-                }
-              >
-                Edit
-              </button>
+                  {/* DOWNLOAD */}
 
-              {/* DOWNLOAD */}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      downloadInvoice(invoiceSale)
+                    }
+                    disabled={finalizing}
+                  >
+                    Download Invoice
+                  </button>
 
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() =>
-                  downloadInvoice(
-                    invoiceSale
-                  )
-                }
-                disabled={
-                  finalizing
-                }
-              >
-                Download Invoice
-              </button>
+                  {/* DONE */}
 
-              {/* DONE */}
-
-              <button
-                type="button"
-                className="primary-button"
-                onClick={
-                  handleDoneInvoice
-                }
-                disabled={
-                  finalizing
-                }
-              >
-                {finalizing
-                  ? "Completing..."
-                  : "Done"}
-              </button>
-
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={handleDoneInvoice}
+                    disabled={finalizing}
+                  >
+                    {finalizing ? "Completing..." : "Confirm"}
+                  </button>
+                </>
+              )}
             </div>
 
           </div>
