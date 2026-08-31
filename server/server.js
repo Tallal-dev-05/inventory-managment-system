@@ -7,6 +7,7 @@ const productRoutes = require("./routes/productRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const saleRoutes = require("./routes/saleRoutes");
 const itemRoutes = require("./routes/itemRoutes");
+const customerRoutes = require("./routes/customerRoutes");
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use("/api", productRoutes);
 app.use("/api", purchaseRoutes);
 app.use("/api", saleRoutes);
 app.use("/api", itemRoutes);
+app.use("/api", customerRoutes);
 
 app.get("/", (req, res) => {
   res.send("Backend is running!");

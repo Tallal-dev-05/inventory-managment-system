@@ -2,10 +2,24 @@ const mongoose = require("mongoose");
 
 const saleSchema = new mongoose.Schema(
   {
+    // ==========================================
+    // PRODUCT
+    // ==========================================
+
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
       required: true,
+    },
+
+    // ==========================================
+    // CUSTOMER
+    // ==========================================
+
+    customer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Customer",
+      default: null,
     },
 
     customerName: {
@@ -14,6 +28,33 @@ const saleSchema = new mongoose.Schema(
       maxlength: 100,
       default: "Walk-in Customer",
     },
+
+    // ==========================================
+    // PAYMENT / CREDIT
+    // ==========================================
+
+    amountPaid: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: 0,
+    },
+
+    previousBalance: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    remainingBalance: {
+      type: Number,
+      required: true,
+      default: 0,
+    },
+
+    // ==========================================
+    // SALE INFORMATION
+    // ==========================================
 
     quantity: {
       type: Number,
@@ -44,10 +85,18 @@ const saleSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ==========================================
+    // DATE
+    // ==========================================
+
     saleDate: {
       type: Date,
       default: Date.now,
     },
+
+    // ==========================================
+    // NOTES
+    // ==========================================
 
     notes: {
       type: String,
@@ -56,7 +105,7 @@ const saleSchema = new mongoose.Schema(
     },
 
     // ==========================================
-    // SALE STATUS
+    // STATUS
     // ==========================================
 
     status: {

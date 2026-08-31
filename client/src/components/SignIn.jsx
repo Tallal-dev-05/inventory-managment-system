@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./SignIn.css";
+import { api } from "../utils/api";
 
 function SignIn() {
   const navigate = useNavigate();
@@ -90,7 +91,7 @@ function SignIn() {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/signin",
+        api("/api/auth/signin"),
         {
           method: "POST",
           headers: {
@@ -115,24 +116,21 @@ function SignIn() {
       }
 
       // ========================================
-// LOGIN SUCCESSFUL
-// ========================================
+      // LOGIN SUCCESSFUL
+      if (!result || !result.user) {
+        setServerMessage(result?.message || "Login failed");
+        return;
+      }
 
-// Check user's role
-if (result.user.role === "admin") {
-  console.log("Admin login detected");
-  navigate("/admin");
-} else {
-  console.log("Normal user login detected");
-  navigate("/items");
-}
+      // Check user's role safely
+      if (result.user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/items");
+      }
 
     } catch (error) {
-      console.error("Login request failed:", error);
-
-      setServerMessage(
-        "Unable to connect to the server"
-      );
+      setServerMessage("Unable to connect to the server");
     }
   };
 

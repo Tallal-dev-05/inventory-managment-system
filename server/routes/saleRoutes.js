@@ -8,8 +8,63 @@ const {
 
 const Product = require("../models/Product");
 const Sale = require("../models/Sale");
+const Customer = require("../models/Customer");
+const CustomerTransaction = require("../models/CustomerTransaction");
 
 const router = express.Router();
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function resolveCustomer(customerId, customerName) {
+  if (!customerId) {
+    return null;
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(customerId)) {
+    const error = new Error("Invalid customer ID");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const customer = await Customer.findById(customerId);
+
+  if (!customer) {
+    const error = new Error("Customer not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return customer;
+}
+
+router.get(
+  "/sales/customer-balance",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      const customerName =
+        typeof req.query.customerName === "string"
+          ? req.query.customerName.trim()
+          : "";
+
+      if (!customerName || customerName.toLowerCase() === "walk-in customer") {
+        return res.status(200).json({ balance: 0 });
+      }
+
+      const customer = await Customer.findOne({
+        name: { $regex: `^${escapeRegex(customerName)}$`, $options: "i" },
+      });
+
+      return res.status(200).json({ balance: Number(customer?.balance || 0) });
+    } catch (error) {
+      console.error("Get customer balance error:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
 // ==========================================
 // CREATE PENDING SALE
@@ -23,16 +78,18 @@ router.post(
     try {
       const {
         productId,
+        customerId,
         customerName,
+        amountPaid,
         quantity,
         sellingPrice,
         saleDate,
         notes,
       } = req.body;
 
-      // ==========================================
-      // VALIDATE REQUIRED FIELDS
-      // ==========================================
+      // ======================================
+      // REQUIRED FIELDS
+      // ======================================
 
       if (
         !productId ||
@@ -45,71 +102,45 @@ router.post(
         });
       }
 
-      // ==========================================
-      // VALIDATE CUSTOMER NAME
-      // ==========================================
+      // ======================================
+      // PRODUCT ID
+      // ======================================
 
       if (
-        customerName &&
-        (
-          typeof customerName !== "string" ||
-          customerName.trim().length > 100
+        !mongoose.Types.ObjectId.isValid(
+          productId
         )
       ) {
         return res.status(400).json({
           message:
-            "Customer name must be 100 characters or fewer",
+            "Invalid product ID",
         });
       }
 
-      // ==========================================
-      // VALIDATE NOTES
-      // ==========================================
+      // ======================================
+      // CUSTOMER ID
+      // ======================================
 
-      if (
-        notes &&
-        (
-          typeof notes !== "string" ||
-          notes.trim().length > 500
-        )
-      ) {
-        return res.status(400).json({
-          message:
-            "Notes must be 500 characters or fewer",
-        });
+      let customer = null;
+      let previousBalance = 0;
+
+      customer = await resolveCustomer(customerId, customerName);
+
+      if (customer) {
+        previousBalance =
+          Number(
+            customer.balance || 0
+          );
       }
 
-      // ==========================================
-      // VALIDATE DATE
-      // ==========================================
+      // ======================================
+      // QUANTITY
+      // ======================================
 
       if (
-        saleDate &&
-        Number.isNaN(Date.parse(saleDate))
-      ) {
-        return res.status(400).json({
-          message: "Sale date is invalid",
-        });
-      }
-
-      // ==========================================
-      // VALIDATE PRODUCT ID
-      // ==========================================
-
-      if (
-        !mongoose.Types.ObjectId.isValid(productId)
-      ) {
-        return res.status(400).json({
-          message: "Invalid product ID",
-        });
-      }
-
-      // ==========================================
-      // VALIDATE QUANTITY
-      // ==========================================
-
-      if (
-        !Number.isInteger(Number(quantity)) ||
+        !Number.isInteger(
+          Number(quantity)
+        ) ||
         Number(quantity) <= 0
       ) {
         return res.status(400).json({
@@ -118,12 +149,14 @@ router.post(
         });
       }
 
-      // ==========================================
-      // VALIDATE SELLING PRICE
-      // ==========================================
+      // ======================================
+      // SELLING PRICE
+      // ======================================
 
       if (
-        Number.isNaN(Number(sellingPrice)) ||
+        Number.isNaN(
+          Number(sellingPrice)
+        ) ||
         Number(sellingPrice) < 0
       ) {
         return res.status(400).json({
@@ -132,35 +165,39 @@ router.post(
         });
       }
 
-      // ==========================================
+      // ======================================
       // FIND PRODUCT
-      // ==========================================
+      // ======================================
 
       const product =
-        await Product.findById(productId);
+        await Product.findById(
+          productId
+        );
 
       if (!product) {
         return res.status(404).json({
-          message: "Product not found",
+          message:
+            "Product not found",
         });
       }
 
-      // ==========================================
-      // CHECK CURRENT STOCK
-      // ==========================================
+      // ======================================
+      // STOCK
+      // ======================================
 
       if (
         Number(product.quantity) <
         Number(quantity)
       ) {
         return res.status(400).json({
-          message: `Insufficient stock. Available stock: ${product.quantity}`,
+          message:
+            `Insufficient stock. Available stock: ${product.quantity}`,
         });
       }
 
-      // ==========================================
+      // ======================================
       // CALCULATE SALE
-      // ==========================================
+      // ======================================
 
       const quantityNumber =
         Number(quantity);
@@ -183,53 +220,161 @@ router.post(
         totalAmount -
         totalCost;
 
-      // ==========================================
+      // ======================================
+      // AMOUNT PAID
+      // ======================================
+
+      const amountPaidNumber =
+        Number(amountPaid || 0);
+
+      if (
+        Number.isNaN(
+          amountPaidNumber
+        ) ||
+        amountPaidNumber < 0
+      ) {
+        return res.status(400).json({
+          message:
+            "Amount paid must be a valid number",
+        });
+      }
+
+      // ======================================
+      // TOTAL DUE
+      //
+      // Previous customer debt
+      // +
+      // New sale
+      // ======================================
+
+      const totalDue =
+        previousBalance +
+        totalAmount;
+
+      // ======================================
+      // PREVENT OVERPAYMENT
+      // ======================================
+
+      if (
+        amountPaidNumber >
+        totalDue
+      ) {
+        return res.status(400).json({
+          message:
+            `Amount paid cannot exceed total due of ${totalDue}`,
+        });
+      }
+
+      if (
+        customerName !== undefined &&
+        (typeof customerName !== "string" || customerName.trim().length > 100)
+      ) {
+        return res.status(400).json({
+          message: "Customer name must be 100 characters or fewer",
+        });
+      }
+
+      if (
+        notes !== undefined &&
+        (typeof notes !== "string" || notes.trim().length > 500)
+      ) {
+        return res.status(400).json({
+          message: "Notes must be 500 characters or fewer",
+        });
+      }
+
+      if (saleDate && Number.isNaN(Date.parse(saleDate))) {
+        return res.status(400).json({ message: "Sale date is invalid" });
+      }
+
+      if (!customer && amountPaidNumber !== totalAmount) {
+        return res.status(400).json({
+          message: "Walk-in customers must pay the full sale amount",
+        });
+      }
+
+      // ======================================
+      // REMAINING BALANCE
+      // ======================================
+
+      const remainingBalance =
+        totalDue -
+        amountPaidNumber;
+
+      // ======================================
       // CREATE PENDING SALE
-      // ==========================================
+      // ======================================
 
-      const sale = await Sale.create({
-        product: product._id,
+      const sale =
+        await Sale.create({
+          product:
+            product._id,
 
-        customerName:
-          customerName &&
-          customerName.trim()
-            ? customerName.trim()
-            : "Walk-in Customer",
+          customer:
+            customer
+              ? customer._id
+              : null,
 
-        quantity: quantityNumber,
+          customerName:
+            customer
+              ? customer.name
+              : (
+                  customerName &&
+                  customerName.trim()
+                    ? customerName.trim()
+                    : "Walk-in Customer"
+                ),
 
-        sellingPrice:
-          sellingPriceNumber,
+          amountPaid:
+            amountPaidNumber,
 
-        totalAmount,
+          previousBalance,
 
-        costPrice:
-          costPriceNumber,
+          remainingBalance,
 
-        profit,
+          quantity:
+            quantityNumber,
 
-        saleDate:
-          saleDate || new Date(),
+          sellingPrice:
+            sellingPriceNumber,
 
-        notes:
-          notes
-            ? notes.trim()
-            : "",
+          totalAmount,
 
-        // IMPORTANT
-        status: "pending",
-      });
+          costPrice:
+            costPriceNumber,
 
-      // Populate product so frontend
-      // can immediately show invoice
+          profit,
+
+          saleDate:
+            saleDate ||
+            new Date(),
+
+          notes:
+            notes
+              ? notes.trim()
+              : "",
+
+          status:
+            "pending",
+        });
+
+      // ======================================
+      // POPULATE PRODUCT
+      // ======================================
+
       await sale.populate(
         "product",
         "name sku category"
       );
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
+      // ======================================
+      // POPULATE CUSTOMER
+      // ======================================
+
+      await sale.populate(
+        "customer",
+        "name phone balance"
+      );
 
       return res.status(201).json({
         message:
@@ -243,8 +388,13 @@ router.post(
         error
       );
 
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+
       return res.status(500).json({
-        message: "Server error",
+        message:
+          "Server error",
       });
     }
   }
@@ -260,20 +410,23 @@ router.put(
   requireRole("admin"),
   async (req, res) => {
     try {
-      const saleId = req.params.id;
+      const saleId =
+        req.params.id;
 
       const {
         productId,
+        customerId,
         customerName,
+        amountPaid,
         quantity,
         sellingPrice,
         saleDate,
         notes,
       } = req.body;
 
-      // ==========================================
-      // VALIDATE SALE ID
-      // ==========================================
+      // ======================================
+      // SALE ID
+      // ======================================
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -281,37 +434,44 @@ router.put(
         )
       ) {
         return res.status(400).json({
-          message: "Invalid sale ID",
+          message:
+            "Invalid sale ID",
         });
       }
 
-      // ==========================================
+      // ======================================
       // FIND SALE
-      // ==========================================
+      // ======================================
 
       const sale =
-        await Sale.findById(saleId);
+        await Sale.findById(
+          saleId
+        );
 
       if (!sale) {
         return res.status(404).json({
-          message: "Sale not found",
+          message:
+            "Sale not found",
         });
       }
 
-      // ==========================================
-      // ONLY PENDING SALES CAN BE EDITED
-      // ==========================================
+      // ======================================
+      // ONLY PENDING
+      // ======================================
 
-      if (sale.status !== "pending") {
+      if (
+        sale.status !==
+        "pending"
+      ) {
         return res.status(400).json({
           message:
             "Completed sales cannot be edited",
         });
       }
 
-      // ==========================================
-      // REQUIRED VALIDATION
-      // ==========================================
+      // ======================================
+      // REQUIRED
+      // ======================================
 
       if (
         !productId ||
@@ -324,9 +484,9 @@ router.put(
         });
       }
 
-      // ==========================================
-      // VALIDATE PRODUCT ID
-      // ==========================================
+      // ======================================
+      // PRODUCT ID
+      // ======================================
 
       if (
         !mongoose.Types.ObjectId.isValid(
@@ -334,16 +494,19 @@ router.put(
         )
       ) {
         return res.status(400).json({
-          message: "Invalid product ID",
+          message:
+            "Invalid product ID",
         });
       }
 
-      // ==========================================
-      // VALIDATE QUANTITY
-      // ==========================================
+      // ======================================
+      // QUANTITY
+      // ======================================
 
       if (
-        !Number.isInteger(Number(quantity)) ||
+        !Number.isInteger(
+          Number(quantity)
+        ) ||
         Number(quantity) <= 0
       ) {
         return res.status(400).json({
@@ -352,12 +515,14 @@ router.put(
         });
       }
 
-      // ==========================================
-      // VALIDATE PRICE
-      // ==========================================
+      // ======================================
+      // SELLING PRICE
+      // ======================================
 
       if (
-        Number.isNaN(Number(sellingPrice)) ||
+        Number.isNaN(
+          Number(sellingPrice)
+        ) ||
         Number(sellingPrice) < 0
       ) {
         return res.status(400).json({
@@ -366,85 +531,55 @@ router.put(
         });
       }
 
-      // ==========================================
-      // CUSTOMER VALIDATION
-      // ==========================================
-
-      if (
-        customerName &&
-        (
-          typeof customerName !== "string" ||
-          customerName.trim().length > 100
-        )
-      ) {
-        return res.status(400).json({
-          message:
-            "Customer name must be 100 characters or fewer",
-        });
-      }
-
-      // ==========================================
-      // NOTES VALIDATION
-      // ==========================================
-
-      if (
-        notes &&
-        (
-          typeof notes !== "string" ||
-          notes.trim().length > 500
-        )
-      ) {
-        return res.status(400).json({
-          message:
-            "Notes must be 500 characters or fewer",
-        });
-      }
-
-      // ==========================================
-      // DATE VALIDATION
-      // ==========================================
-
-      if (
-        saleDate &&
-        Number.isNaN(Date.parse(saleDate))
-      ) {
-        return res.status(400).json({
-          message: "Sale date is invalid",
-        });
-      }
-
-      // ==========================================
-      // FIND NEW PRODUCT
-      // ==========================================
+      // ======================================
+      // FIND PRODUCT
+      // ======================================
 
       const product =
-        await Product.findById(productId);
+        await Product.findById(
+          productId
+        );
 
       if (!product) {
         return res.status(404).json({
-          message: "Product not found",
+          message:
+            "Product not found",
         });
       }
 
-      // ==========================================
-      // CHECK STOCK
-      //
-      // Since pending sale hasn't reduced stock,
-      // we check the full current stock.
-      // ==========================================
+      // ======================================
+      // STOCK
+      // ======================================
 
       if (
         Number(product.quantity) <
         Number(quantity)
       ) {
         return res.status(400).json({
-          message: `Insufficient stock. Available stock: ${product.quantity}`,
+          message:
+            `Insufficient stock. Available stock: ${product.quantity}`,
         });
       }
 
-      // ==========================================
-      // RECALCULATE
-      // ==========================================
+      // ======================================
+      // CUSTOMER
+      // ======================================
+
+      let customer = null;
+      let previousBalance = 0;
+
+      customer = await resolveCustomer(customerId, customerName);
+
+      if (customer) {
+        previousBalance =
+          Number(
+            customer.balance || 0
+          );
+      }
+
+      // ======================================
+      // CALCULATE
+      // ======================================
 
       const quantityNumber =
         Number(quantity);
@@ -467,18 +602,101 @@ router.put(
         totalAmount -
         totalCost;
 
-      // ==========================================
+      // ======================================
+      // PAYMENT
+      // ======================================
+
+      const amountPaidNumber =
+        Number(amountPaid || 0);
+
+      if (
+        Number.isNaN(
+          amountPaidNumber
+        ) ||
+        amountPaidNumber < 0
+      ) {
+        return res.status(400).json({
+          message:
+            "Amount paid must be a valid number",
+        });
+      }
+
+      const totalDue =
+        previousBalance +
+        totalAmount;
+
+      if (
+        amountPaidNumber >
+        totalDue
+      ) {
+        return res.status(400).json({
+          message:
+            `Amount paid cannot exceed total due of ${totalDue}`,
+        });
+      }
+
+      if (
+        customerName !== undefined &&
+        (typeof customerName !== "string" || customerName.trim().length > 100)
+      ) {
+        return res.status(400).json({
+          message: "Customer name must be 100 characters or fewer",
+        });
+      }
+
+      if (
+        notes !== undefined &&
+        (typeof notes !== "string" || notes.trim().length > 500)
+      ) {
+        return res.status(400).json({
+          message: "Notes must be 500 characters or fewer",
+        });
+      }
+
+      if (saleDate && Number.isNaN(Date.parse(saleDate))) {
+        return res.status(400).json({ message: "Sale date is invalid" });
+      }
+
+      if (!customer && amountPaidNumber !== totalAmount) {
+        return res.status(400).json({
+          message: "Walk-in customers must pay the full sale amount",
+        });
+      }
+
+      const remainingBalance =
+        totalDue -
+        amountPaidNumber;
+
+      // ======================================
       // UPDATE SALE
-      // ==========================================
+      // ======================================
 
       sale.product =
         product._id;
 
+      sale.customer =
+        customer
+          ? customer._id
+          : null;
+
       sale.customerName =
-        customerName &&
-        customerName.trim()
-          ? customerName.trim()
-          : "Walk-in Customer";
+        customer
+          ? customer.name
+          : (
+              customerName &&
+              customerName.trim()
+                ? customerName.trim()
+                : "Walk-in Customer"
+            );
+
+      sale.amountPaid =
+        amountPaidNumber;
+
+      sale.previousBalance =
+        previousBalance;
+
+      sale.remainingBalance =
+        remainingBalance;
 
       sale.quantity =
         quantityNumber;
@@ -496,7 +714,8 @@ router.put(
         profit;
 
       sale.saleDate =
-        saleDate || sale.saleDate;
+        saleDate ||
+        sale.saleDate;
 
       sale.notes =
         notes
@@ -505,15 +724,19 @@ router.put(
 
       await sale.save();
 
-      // Populate product
+      // ======================================
+      // POPULATE
+      // ======================================
+
       await sale.populate(
         "product",
         "name sku category"
       );
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
+      await sale.populate(
+        "customer",
+        "name phone balance"
+      );
 
       return res.status(200).json({
         message:
@@ -527,8 +750,13 @@ router.put(
         error
       );
 
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
+
       return res.status(500).json({
-        message: "Server error",
+        message:
+          "Server error",
       });
     }
   }
@@ -543,114 +771,300 @@ router.post(
   requireAuth,
   requireRole("admin"),
   async (req, res) => {
-    try {
-      const saleId = req.params.id;
+    const session =
+      await mongoose.startSession();
 
-      // ==========================================
+    try {
+      const saleId =
+        req.params.id;
+
+      // ======================================
       // VALIDATE ID
-      // ==========================================
+      // ======================================
 
       if (
         !mongoose.Types.ObjectId.isValid(
           saleId
         )
       ) {
-        return res.status(400).json({
-          message: "Invalid sale ID",
-        });
-      }
+        await session.endSession();
 
-      // ==========================================
-      // FIND SALE
-      // ==========================================
-
-      const sale =
-        await Sale.findById(saleId);
-
-      if (!sale) {
-        return res.status(404).json({
-          message: "Sale not found",
-        });
-      }
-
-      // ==========================================
-      // CHECK STATUS
-      // ==========================================
-
-      if (sale.status === "completed") {
         return res.status(400).json({
           message:
-            "Sale has already been completed",
+            "Invalid sale ID",
         });
       }
 
-      // ==========================================
-      // ATOMICALLY REDUCE STOCK
-      //
-      // This protects against two users
-      // selling the same stock.
-      // ==========================================
+      let finalSale;
+      let updatedProduct;
 
-      const product =
-        await Product.findOneAndUpdate(
-          {
-            _id: sale.product,
+      await session.withTransaction(
+        async () => {
+          // ==================================
+          // FIND SALE
+          // ==================================
 
-            quantity: {
-              $gte: sale.quantity,
-            },
-          },
-          {
-            $inc: {
-              quantity: -sale.quantity,
-            },
-          },
-          {
-            new: true,
+          const sale =
+            await Sale.findById(
+              saleId
+            ).session(session);
+
+          if (!sale) {
+            throw new Error(
+              "Sale not found"
+            );
           }
-        );
 
-      if (!product) {
-        return res.status(409).json({
-          message:
-            "Insufficient stock. Stock may have changed while reviewing this invoice.",
-        });
-      }
+          // ==================================
+          // CHECK STATUS
+          // ==================================
 
-      // ==========================================
-      // MARK SALE COMPLETED
-      // ==========================================
+          if (
+            sale.status ===
+            "completed"
+          ) {
+            throw new Error(
+              "Sale has already been completed"
+            );
+          }
 
-      sale.status = "completed";
+          // ==================================
+          // REDUCE STOCK ATOMICALLY
+          // ==================================
 
-      await sale.save();
+          const product =
+            await Product.findOneAndUpdate(
+              {
+                _id: sale.product,
 
-      // Populate product
-      await sale.populate(
+                quantity: {
+                  $gte:
+                    sale.quantity,
+                },
+              },
+              {
+                $inc: {
+                  quantity:
+                    -sale.quantity,
+                },
+              },
+              {
+                new: true,
+                session,
+              }
+            );
+
+          if (!product) {
+            throw new Error(
+              "Insufficient stock. Stock may have changed while reviewing this invoice."
+            );
+          }
+
+          updatedProduct =
+            product;
+
+          // ==================================
+          // CUSTOMER BALANCE
+          // ==================================
+
+          if (sale.customer) {
+            const customer =
+              await Customer.findById(
+                sale.customer
+              ).session(session);
+
+            if (!customer) {
+              throw new Error(
+                "Customer associated with this sale was not found"
+              );
+            }
+
+            // Current balance is used here
+            // because something could have
+            // changed while invoice was pending.
+
+            const previousBalance =
+              Number(
+                customer.balance ||
+                  0
+              );
+
+            const totalDue =
+              previousBalance +
+              Number(
+                sale.totalAmount
+              );
+
+            const amountPaid =
+              Number(
+                sale.amountPaid ||
+                  0
+              );
+
+            if (
+              amountPaid >
+              totalDue
+            ) {
+              throw new Error(
+                "Amount paid exceeds customer balance and sale amount"
+              );
+            }
+
+            const newBalance =
+              totalDue -
+              amountPaid;
+
+            // ==============================
+            // UPDATE CUSTOMER
+            // ==============================
+
+            customer.balance =
+              newBalance;
+
+            await customer.save({
+              session,
+            });
+
+            // ==============================
+            // UPDATE SALE BALANCE
+            // ==============================
+
+            sale.previousBalance =
+              previousBalance;
+
+            sale.remainingBalance =
+              newBalance;
+
+            // ==============================
+            // CREATE LEDGER ENTRY
+            // ==============================
+
+            await CustomerTransaction.create(
+              [
+                {
+                  customer:
+                    customer._id,
+
+                  type: "sale",
+
+                  sale:
+                    sale._id,
+
+                  amount:
+                    Number(
+                      sale.totalAmount
+                    ),
+
+                  previousBalance,
+
+                  balanceAfter:
+                    newBalance,
+
+                  description:
+                    "Product sale",
+                },
+              ],
+              {
+                session,
+              }
+            );
+          }
+
+          // ==================================
+          // COMPLETE SALE
+          // ==================================
+
+          sale.status =
+            "completed";
+
+          await sale.save({
+            session,
+          });
+
+          finalSale =
+            sale;
+        }
+      );
+
+      await session.endSession();
+
+      // ======================================
+      // POPULATE AFTER TRANSACTION
+      // ======================================
+
+      await finalSale.populate(
         "product",
         "name sku category"
       );
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
+      await finalSale.populate(
+        "customer",
+        "name phone balance"
+      );
 
       return res.status(200).json({
         message:
           "Sale completed successfully",
 
-        sale,
+        sale:
+          finalSale,
 
-        product,
+        product:
+          updatedProduct,
       });
     } catch (error) {
+      await session.endSession();
+
       console.error(
         "Finalize sale error:",
         error
       );
 
+      const message =
+        error.message ||
+        "Server error";
+
+      if (
+        message ===
+        "Sale not found"
+      ) {
+        return res.status(404).json({
+          message,
+        });
+      }
+
+      if (
+        message ===
+        "Sale has already been completed"
+      ) {
+        return res.status(400).json({
+          message,
+        });
+      }
+
+      if (
+        message.includes(
+          "Insufficient stock"
+        )
+      ) {
+        return res.status(409).json({
+          message,
+        });
+      }
+
+      if (
+        message.includes(
+          "Customer"
+        )
+      ) {
+        return res.status(404).json({
+          message,
+        });
+      }
+
       return res.status(500).json({
-        message: "Server error",
+        message:
+          "Failed to finalize sale",
       });
     }
   }
@@ -674,6 +1088,10 @@ router.get(
             "product",
             "name sku category"
           )
+          .populate(
+            "customer",
+            "name phone balance"
+          )
           .sort({
             saleDate: -1,
             createdAt: -1,
@@ -689,7 +1107,8 @@ router.get(
       );
 
       return res.status(500).json({
-        message: "Server error",
+        message:
+          "Server error",
       });
     }
   }

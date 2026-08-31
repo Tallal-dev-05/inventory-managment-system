@@ -3,12 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import "./Sales.css";
 import { formatPKR } from "../utils/currency";
+import { api } from "../utils/api";
+
+// ==========================================
+// EMPTY FORM
+// ==========================================
 
 const emptyForm = {
   productId: "",
+  customerId: "",
   customerName: "",
   quantity: "",
   sellingPrice: "",
+  amountPaid: "",
   saleDate: "",
   notes: "",
 };
@@ -23,191 +30,460 @@ function downloadInvoice(sale) {
     format: "a4",
   });
 
+  /* ==========================================
+     HELPERS
+  ========================================== */
+
   const money = (value) =>
     `PKR ${Number(value || 0).toLocaleString("en-PK", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
 
+  const safeText = (value, fallback = "-") => {
+    const text = String(value || "").trim();
+    return text || fallback;
+  };
+
   const invoiceNumber = sale?._id
     ? sale._id.slice(-8).toUpperCase()
     : "DRAFT";
 
-  const date = sale?.saleDate
+  const invoiceDate = sale?.saleDate
     ? new Date(sale.saleDate).toLocaleDateString("en-PK", {
         year: "numeric",
         month: "short",
         day: "numeric",
       })
-    : new Date().toLocaleDateString("en-PK");
+    : new Date().toLocaleDateString("en-PK", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
 
-  const productName =
-    sale?.product?.name || "Unknown Product";
+  const productName = safeText(
+    sale?.product?.name,
+    "Unknown Product"
+  );
 
-  // ==========================================
-  // HEADER
-  // ==========================================
+  const productSku = safeText(sale?.product?.sku);
 
-  pdf.setFillColor(25, 166, 106);
-  pdf.rect(0, 0, 210, 34, "F");
+  const customerName = safeText(
+    sale?.customerName,
+    "Walk-in Customer"
+  );
 
-  pdf.setTextColor(255, 255, 255);
+  const quantity = Number(sale?.quantity || 0);
+  const sellingPrice = Number(sale?.sellingPrice || 0);
+  const previousBalance = Number(sale?.previousBalance || 0);
+  const newSaleAmount = Number(sale?.totalAmount || 0);
+  const amountPaid = Number(sale?.amountPaid || 0);
 
-  pdf.setFontSize(22);
-  pdf.text("INVENTORY", 18, 19);
+  const totalDue = previousBalance + newSaleAmount;
 
-  pdf.setFontSize(10);
-  pdf.text("Sales invoice", 18, 26);
+  const remainingBalance = Number(
+    sale?.remainingBalance ?? totalDue - amountPaid
+  );
 
-  pdf.setFontSize(14);
-  pdf.text("INVOICE", 192, 19, {
-    align: "right",
-  });
+  /* ==========================================
+     COLORS
+  ========================================== */
 
+  const colors = {
+    page: [11, 14, 19],
+    panel: [18, 22, 32],
+    panelLight: [24, 29, 42],
+    tableHeader: [16, 19, 27],
+    border: [35, 40, 57],
+
+    white: [241, 242, 247],
+    text: [220, 224, 235],
+    muted: [124, 134, 165],
+
+    purple: [104, 101, 245],
+    purpleLight: [151, 147, 255],
+    green: [0, 201, 149],
+    yellow: [245, 183, 25],
+  };
+
+  const setTextColor = (color) => {
+    pdf.setTextColor(color[0], color[1], color[2]);
+  };
+
+  const setFillColor = (color) => {
+    pdf.setFillColor(color[0], color[1], color[2]);
+  };
+
+  const setDrawColor = (color) => {
+    pdf.setDrawColor(color[0], color[1], color[2]);
+  };
+
+  const drawRoundedPanel = (
+    x,
+    y,
+    width,
+    height,
+    fillColor = colors.panel,
+    radius = 3
+  ) => {
+    setFillColor(fillColor);
+    setDrawColor(colors.border);
+    pdf.roundedRect(x, y, width, height, radius, radius, "FD");
+  };
+
+  const drawLabel = (text, x, y, options = {}) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7);
+    setTextColor(colors.muted);
+    pdf.text(String(text).toUpperCase(), x, y, options);
+  };
+
+  const drawValue = (
+    text,
+    x,
+    y,
+    options = {},
+    color = colors.text,
+    size = 10
+  ) => {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(size);
+    setTextColor(color);
+    pdf.text(String(text), x, y, options);
+  };
+
+  /* ==========================================
+     PAGE BACKGROUND
+  ========================================== */
+
+  setFillColor(colors.page);
+  pdf.rect(0, 0, 210, 297, "F");
+
+  /*
+   * Main document bounds:
+   * left = 15
+   * right = 195
+   * width = 180
+   */
+
+  /* ==========================================
+     TOP ACCENT
+  ========================================== */
+
+  setFillColor(colors.purple);
+  pdf.rect(0, 0, 210, 3, "F");
+
+  /* ==========================================
+     HEADER
+  ========================================== */
+
+  drawRoundedPanel(15, 13, 180, 31);
+
+  // Logo mark
+  setFillColor(colors.purple);
+  pdf.roundedRect(22, 20, 17, 17, 4, 4, "F");
+
+  pdf.setFont("helvetica", "bold");
   pdf.setFontSize(9);
-  pdf.text(`#${invoiceNumber}`, 192, 26, {
+  setTextColor(colors.white);
+  pdf.text("IM", 30.5, 30.5, {
+    align: "center",
+  });
+
+  // Business name
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(17);
+  setTextColor(colors.white);
+  pdf.text("INVENTORY", 45, 26);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  setTextColor(colors.muted);
+  pdf.text("Inventory Management System", 45, 32);
+
+  // Invoice information
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  setTextColor(colors.purpleLight);
+  pdf.text("SALES INVOICE", 188, 24, {
     align: "right",
   });
 
-  // ==========================================
-  // CUSTOMER INFORMATION
-  // ==========================================
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  setTextColor(colors.muted);
+  pdf.text(`#${invoiceNumber}`, 188, 30, {
+    align: "right",
+  });
 
-  pdf.setTextColor(29, 41, 57);
+  pdf.text(invoiceDate, 188, 35, {
+    align: "right",
+  });
 
-  pdf.setFontSize(11);
-  pdf.text("Bill to", 18, 49);
+  /* ==========================================
+     CUSTOMER AND INVOICE DETAILS
+  ========================================== */
 
-  pdf.setFontSize(14);
-  pdf.text(
-    sale?.customerName || "Walk-in Customer",
-    18,
-    57
+  drawRoundedPanel(15, 50, 88, 29);
+  drawRoundedPanel(107, 50, 88, 29);
+
+  drawLabel("Bill To", 21, 58);
+
+  const customerLines = pdf.splitTextToSize(customerName, 72);
+
+  drawValue(
+    customerLines.slice(0, 2),
+    21,
+    66,
+    {},
+    colors.white,
+    11
   );
+
+  drawLabel("Invoice Details", 113, 58);
+  drawValue(`#${invoiceNumber}`, 113, 66, {}, colors.text, 9);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  setTextColor(colors.muted);
+  pdf.text(`Date: ${invoiceDate}`, 113, 72);
+
+  /* ==========================================
+     PRODUCT TABLE
+  ========================================== */
+
+  drawRoundedPanel(15, 85, 180, 43);
+
+  // Table heading
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  setTextColor(colors.white);
+  pdf.text("Sale Details", 21, 94);
+
+  // Table header background
+  setFillColor(colors.tableHeader);
+  pdf.roundedRect(20, 99, 170, 10, 2, 2, "F");
+
+  drawLabel("Product", 24, 105.5);
+  drawLabel("SKU", 96, 105.5);
+  drawLabel("Qty", 126, 105.5, {
+    align: "center",
+  });
+  drawLabel("Unit Price", 153, 105.5, {
+    align: "right",
+  });
+  drawLabel("Total", 186, 105.5, {
+    align: "right",
+  });
+
+  // Product row
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8.5);
+  setTextColor(colors.text);
+
+  const productLines = pdf.splitTextToSize(productName, 61);
+
+  pdf.text(productLines.slice(0, 1), 24, 118);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  setTextColor(colors.muted);
+  pdf.text(productSku, 96, 118);
+
+  pdf.setFont("helvetica", "bold");
+  setTextColor(colors.text);
+  pdf.text(String(quantity), 126, 118, {
+    align: "center",
+  });
+
+  pdf.text(money(sellingPrice), 153, 118, {
+    align: "right",
+  });
+
+  setTextColor(colors.purpleLight);
+  pdf.text(money(newSaleAmount), 186, 118, {
+    align: "right",
+  });
+
+  /* ==========================================
+     PAYMENT SUMMARY
+  ========================================== */
+
+  drawRoundedPanel(15, 134, 180, 70);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  setTextColor(colors.white);
+  pdf.text("Payment Summary", 21, 144);
+
+  // Divider
+  setDrawColor(colors.border);
+  pdf.setLineWidth(0.3);
+  pdf.line(21, 149, 189, 149);
+
+  const summaryRows = [
+    {
+      label: "Previous balance",
+      value: previousBalance,
+      color: colors.text,
+    },
+    {
+      label: "New sale",
+      value: newSaleAmount,
+      color: colors.text,
+    },
+    {
+      label: "Total amount due",
+      value: totalDue,
+      color: colors.purpleLight,
+    },
+    {
+      label: "Paid now",
+      value: amountPaid,
+      color: colors.green,
+    },
+  ];
+
+  let rowY = 158;
+
+  summaryRows.forEach((row) => {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    setTextColor(colors.muted);
+    pdf.text(row.label, 24, rowY);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8.5);
+    setTextColor(row.color);
+    pdf.text(money(row.value), 186, rowY, {
+      align: "right",
+    });
+
+    rowY += 9;
+  });
+
+  /* ==========================================
+     REMAINING BALANCE
+  ========================================== */
+
+  setFillColor([16, 37, 31]);
+  setDrawColor([7, 88, 68]);
+
+  pdf.roundedRect(21, 187, 168, 11, 2, 2, "FD");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8.5);
+  setTextColor(colors.green);
+  pdf.text("Remaining Balance", 26, 194);
 
   pdf.setFontSize(10);
-  pdf.setTextColor(102, 112, 133);
-
-  pdf.text(`Invoice date: ${date}`, 192, 49, {
+  pdf.text(money(remainingBalance), 184, 194, {
     align: "right",
   });
 
-  pdf.text(
-    `SKU: ${sale?.product?.sku || "-"}`,
-    192,
-    56,
-    {
-      align: "right",
-    }
-  );
+  /* ==========================================
+     PAYMENT STATUS BADGE
+  ========================================== */
 
-  // ==========================================
-  // TABLE HEADER
-  // ==========================================
+  const isPaid = remainingBalance <= 0;
 
-  pdf.setFillColor(242, 248, 245);
-  pdf.rect(18, 70, 174, 10, "F");
-
-  pdf.setTextColor(52, 67, 74);
-  pdf.setFontSize(9);
-
-  pdf.text("DESCRIPTION", 22, 76.5);
-  pdf.text("QTY", 120, 76.5);
-  pdf.text("UNIT PRICE", 142, 76.5);
-
-  pdf.text("TOTAL", 188, 76.5, {
-    align: "right",
-  });
-
-  // ==========================================
-  // PRODUCT
-  // ==========================================
-
-  pdf.setTextColor(29, 41, 57);
-  pdf.setFontSize(10);
-
-  pdf.text(productName, 22, 90);
-
-  pdf.text(
-    String(sale?.quantity || 0),
-    120,
-    90
-  );
-
-  pdf.text(
-    money(sale?.sellingPrice),
-    142,
-    90
-  );
-
-  pdf.text(
-    money(sale?.totalAmount),
-    188,
-    90,
-    {
-      align: "right",
-    }
-  );
-
-  pdf.setDrawColor(224, 231, 235);
-  pdf.line(18, 97, 192, 97);
-
-  // ==========================================
-  // TOTAL
-  // ==========================================
-
-  pdf.setFontSize(11);
-  pdf.text("Total due", 142, 112);
-
-  pdf.setTextColor(25, 166, 106);
-  pdf.setFontSize(16);
-
-  pdf.text(
-    money(sale?.totalAmount),
-    192,
-    112,
-    {
-      align: "right",
-    }
-  );
-
-  // ==========================================
-  // NOTES
-  // ==========================================
-
-  if (sale?.notes) {
-    pdf.setTextColor(102, 112, 133);
-    pdf.setFontSize(9);
-
-    pdf.text("Notes", 18, 126);
-
-    const notes = pdf.splitTextToSize(
-      sale.notes,
-      170
-    );
-
-    pdf.text(notes, 18, 133);
+  if (isPaid) {
+    setFillColor([7, 55, 45]);
+    setDrawColor([7, 88, 68]);
+    setTextColor(colors.green);
+  } else {
+    setFillColor([48, 36, 9]);
+    setDrawColor([112, 70, 6]);
+    setTextColor(colors.yellow);
   }
 
-  // ==========================================
-  // FOOTER
-  // ==========================================
+  pdf.roundedRect(15, 210, 38, 9, 4, 4, "FD");
 
-  pdf.setTextColor(102, 112, 133);
-  pdf.setFontSize(9);
-
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(7);
   pdf.text(
-    "Thank you for your business.",
-    105,
-    276,
+    isPaid ? "PAID" : "PAYMENT DUE",
+    34,
+    215.7,
     {
       align: "center",
     }
   );
 
-  pdf.save(
-    `invoice-${invoiceNumber}.pdf`
+  /* ==========================================
+     NOTES
+  ========================================== */
+
+  if (sale?.notes) {
+    drawRoundedPanel(15, 225, 180, 30);
+
+    drawLabel("Notes", 21, 233);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    setTextColor(colors.muted);
+
+    const notes = pdf.splitTextToSize(
+      safeText(sale.notes),
+      164
+    );
+
+    pdf.text(notes.slice(0, 3), 21, 240);
+  }
+
+  /* ==========================================
+     FOOTER
+  ========================================== */
+
+  const footerY = sale?.notes ? 270 : 250;
+
+  setDrawColor(colors.border);
+  pdf.line(15, footerY, 195, footerY);
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  setTextColor(colors.purpleLight);
+  pdf.text(
+    "Thank you for your business.",
+    105,
+    footerY + 8,
+    {
+      align: "center",
+    }
   );
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7);
+  setTextColor(colors.muted);
+  pdf.text(
+    "Generated by Inventory Management System",
+    105,
+    footerY + 14,
+    {
+      align: "center",
+    }
+  );
+
+  pdf.text(
+    `Invoice #${invoiceNumber}`,
+    15,
+    289
+  );
+
+  pdf.text(
+    "Page 1 of 1",
+    195,
+    289,
+    {
+      align: "right",
+    }
+  );
+
+  /* ==========================================
+     SAVE PDF
+  ========================================== */
+
+  pdf.save(`invoice-${invoiceNumber}.pdf`);
 }
 
 // ==========================================
@@ -215,32 +491,77 @@ function downloadInvoice(sale) {
 // ==========================================
 
 function Sales() {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  const [products, setProducts] = useState([]);
-  const [sales, setSales] = useState([]);
+  // ==========================================
+  // DATA
+  // ==========================================
 
-  const [showForm, setShowForm] = useState(false);
+  const [products, setProducts] =
+    useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [sales, setSales] =
+    useState([]);
+
+  const [customers, setCustomers] =
+    useState([]);
+
+  const [customerAccount, setCustomerAccount] =
+    useState(null);
+
+  const [showNewCustomer, setShowNewCustomer] =
+    useState(false);
+
+  const [newCustomer, setNewCustomer] =
+    useState({ name: "", phone: "" });
+
+  const [paymentAmount, setPaymentAmount] =
+    useState("");
+
+  // ==========================================
+  // UI
+  // ==========================================
+
+  const [showForm, setShowForm] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [saving, setSaving] =
+    useState(false);
+
   const [finalizing, setFinalizing] =
     useState(false);
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [error, setError] =
+    useState("");
+
+  const [success, setSuccess] =
+    useState("");
+
+  // ==========================================
+  // FORM
+  // ==========================================
 
   const [formData, setFormData] =
     useState(emptyForm);
 
   // ==========================================
-  // CURRENT INVOICE
+  // CUSTOMER BALANCE
+  // ==========================================
+
+  const [customerBalance, setCustomerBalance] =
+    useState(0);
+
+  // ==========================================
+  // INVOICE
   // ==========================================
 
   const [invoiceSale, setInvoiceSale] =
     useState(null);
 
-  // When true the invoice modal is view-only (history view)
   const [invoiceViewOnly, setInvoiceViewOnly] =
     useState(false);
 
@@ -257,15 +578,13 @@ function Sales() {
 
   async function getProducts() {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/products",
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(api("/api/products"), {
+        method: "GET",
+        credentials: "include",
+      });
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -274,27 +593,29 @@ function Sales() {
         );
       }
 
-      setProducts(data.products || []);
+      setProducts(
+        data.products || []
+      );
     } catch (error) {
-      setError(error.message);
+      setError(
+        error.message
+      );
     }
   }
 
   // ==========================================
-  // GET COMPLETED SALES
+  // GET SALES
   // ==========================================
 
   async function getSales() {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/sales",
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(api("/api/sales"), {
+        method: "GET",
+        credentials: "include",
+      });
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -303,7 +624,91 @@ function Sales() {
         );
       }
 
-      setSales(data.sales || []);
+      setSales(
+        data.sales || []
+      );
+    } catch (error) {
+      setError(
+        error.message
+      );
+    }
+  }
+
+  async function getCustomers() {
+    const response = await fetch(api("/api/customers"), {
+      credentials: "include",
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to get customers");
+    setCustomers(data.customers || []);
+    return data.customers || [];
+  }
+
+  async function openCustomerAccount(customerId) {
+    try {
+      const response = await fetch(api(`/api/customers/${customerId}/transactions`), { credentials: "include" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to get customer account");
+      setCustomerAccount(data);
+      setPaymentAmount("");
+    } catch (error) {
+      setError(error.message);
+    }
+  }
+
+  async function createCustomer(event) {
+    event.preventDefault();
+    try {
+      const response = await fetch(api("/api/customers"), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCustomer),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to create customer");
+      await getCustomers();
+      setFormData((previous) => ({
+        ...previous,
+        customerId: data.customer._id,
+        customerName: data.customer.name,
+      }));
+      setCustomerBalance(Number(data.customer.balance || 0));
+      setNewCustomer({ name: "", phone: "" });
+      setShowNewCustomer(false);
+      setSuccess("Customer created and selected.");
+    } catch (error) {
+      setError(error.message);
+    }
+  }
+
+  async function receivePayment(event) {
+    event.preventDefault();
+    if (!customerAccount) return;
+    try {
+      const response = await fetch(api(`/api/customers/${customerAccount.customer._id}/payment`), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: Number(paymentAmount) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to record payment");
+      setCustomers((previous) => previous.map((customer) =>
+        customer._id === data.customer._id ? data.customer : customer
+      ));
+      setCustomerAccount((previous) => previous && ({
+        customer: data.customer,
+        transactions: [data.transaction, ...previous.transactions],
+      }));
+      setCustomerBalance((previous) =>
+        customerAccount.customer._id === formData.customerId
+          ? Number(data.customer.balance || 0)
+          : previous
+      );
+      setPaymentAmount("");
+      await getCustomers();
+      setSuccess("Payment recorded successfully.");
     } catch (error) {
       setError(error.message);
     }
@@ -318,28 +723,79 @@ function Sales() {
       setLoading(true);
       setError("");
 
-      await Promise.all([
-        getProducts(),
-        getSales(),
-      ]);
-
-      setLoading(false);
+      try {
+        await Promise.all([
+          getProducts(),
+          getSales(),
+          getCustomers(),
+        ]);
+      } catch (error) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadData();
   }, []);
 
   // ==========================================
+  // CUSTOMER NAME CHANGE
+  // ==========================================
+
+  async function handleCustomerChange(
+    event
+  ) {
+    const value =
+      event.target.value;
+
+    const customer = customers.find((item) => item._id === value);
+    setFormData((previous) => ({
+      ...previous,
+      customerId: value,
+      customerName: customer?.name || "",
+    }));
+    setCustomerBalance(Number(customer?.balance || 0));
+
+    setError("");
+    setSuccess("");
+
+    if (!value) return;
+
+    try {
+      const response = await fetch(
+        api(`/api/customers/${value}`),
+        { credentials: "include" }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to get customer");
+      setFormData((previous) => ({
+        ...previous,
+        customerId: data.customer._id,
+        customerName: data.customer.name,
+      }));
+      setCustomerBalance(Number(data.customer.balance || 0));
+    } catch (error) {
+      setError(error.message);
+    }
+  }
+
+  // ==========================================
   // FORM CHANGE
   // ==========================================
 
   function handleChange(event) {
-    const { name, value } = event.target;
+    const {
+      name,
+      value,
+    } = event.target;
 
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    setFormData(
+      (previous) => ({
+        ...previous,
+        [name]: value,
+      })
+    );
 
     setError("");
     setSuccess("");
@@ -349,22 +805,31 @@ function Sales() {
   // PRODUCT CHANGE
   // ==========================================
 
-  function handleProductChange(event) {
-    const productId = event.target.value;
+  function handleProductChange(
+    event
+  ) {
+    const productId =
+      event.target.value;
 
-    const selectedProduct = products.find(
-      (product) =>
-        product._id === productId
+    const selectedProduct =
+      products.find(
+        (product) =>
+          product._id ===
+          productId
+      );
+
+    setFormData(
+      (previous) => ({
+        ...previous,
+
+        productId,
+
+        sellingPrice:
+          selectedProduct
+            ? selectedProduct.sellingPrice
+            : "",
+      })
     );
-
-    setFormData((previous) => ({
-      ...previous,
-      productId,
-
-      sellingPrice: selectedProduct
-        ? selectedProduct.sellingPrice
-        : "",
-    }));
 
     setError("");
     setSuccess("");
@@ -374,44 +839,118 @@ function Sales() {
   // SELECTED PRODUCT
   // ==========================================
 
-  const selectedProduct = products.find(
-    (product) =>
-      product._id === formData.productId
-  );
+  const selectedProduct =
+    products.find(
+      (product) =>
+        product._id ===
+        formData.productId
+    );
 
   // ==========================================
-  // TOTAL AMOUNT
+  // SALE TOTAL
   // ==========================================
 
   const totalAmount =
-    Number(formData.quantity || 0) *
-    Number(formData.sellingPrice || 0);
+    Number(
+      formData.quantity || 0
+    ) *
+    Number(
+      formData.sellingPrice || 0
+    );
 
   // ==========================================
-  // ESTIMATED PROFIT
+  // TOTAL DUE
+  // ==========================================
+
+  const totalDue =
+    Number(customerBalance || 0) +
+    totalAmount;
+
+  // ==========================================
+  // PAID NOW
+  // ==========================================
+
+  const paidAmount =
+    Number(
+      formData.amountPaid || 0
+    );
+
+  // ==========================================
+  // REMAINING BALANCE
+  // ==========================================
+
+  const remainingBalance =
+    Math.max(
+      0,
+      totalDue - paidAmount
+    );
+
+  // ==========================================
+  // PROFIT
   // ==========================================
 
   const estimatedProfit =
-    Number(formData.quantity || 0) *
+    Number(
+      formData.quantity || 0
+    ) *
     (
-      Number(formData.sellingPrice || 0) -
       Number(
-        selectedProduct?.costPrice || 0
+        formData.sellingPrice || 0
+      ) -
+      Number(
+        selectedProduct?.costPrice ||
+          0
       )
+    );
+
+  // ==========================================
+  // CASH FLOW SUMMARY
+  // ==========================================
+
+  const totalSalesAmount =
+    sales.reduce(
+      (sum, sale) =>
+        sum +
+        Number(
+          sale.totalAmount || 0
+        ),
+      0
+    );
+
+  const totalCashReceived =
+    sales.reduce(
+      (sum, sale) =>
+        sum +
+        Number(
+          sale.amountPaid || 0
+        ),
+      0
+    );
+
+  const totalOutstanding =
+    customers.reduce(
+      (sum, customer) =>
+        sum +
+        Number(
+          customer.balance || 0
+        ),
+      0
     );
 
   // ==========================================
   // SAVE / UPDATE SALE
   // ==========================================
 
-  async function handleSubmit(event) {
+  async function handleSubmit(
+    event
+  ) {
     event.preventDefault();
 
     setError("");
     setSuccess("");
 
     // ========================================
-    // VALIDATION
+    // PRODUCT
     // ========================================
 
     if (!formData.productId) {
@@ -420,6 +959,10 @@ function Sales() {
       );
       return;
     }
+
+    // ========================================
+    // QUANTITY
+    // ========================================
 
     if (!formData.quantity) {
       setError(
@@ -430,9 +973,13 @@ function Sales() {
 
     if (
       !Number.isInteger(
-        Number(formData.quantity)
+        Number(
+          formData.quantity
+        )
       ) ||
-      Number(formData.quantity) <= 0
+      Number(
+        formData.quantity
+      ) <= 0
     ) {
       setError(
         "Quantity must be a positive whole number"
@@ -440,10 +987,18 @@ function Sales() {
       return;
     }
 
+    // ========================================
+    // STOCK
+    // ========================================
+
     if (
       selectedProduct &&
-      Number(formData.quantity) >
-        Number(selectedProduct.quantity)
+      Number(
+        formData.quantity
+      ) >
+        Number(
+          selectedProduct.quantity
+        )
     ) {
       setError(
         `Insufficient stock. Available stock: ${selectedProduct.quantity}`
@@ -451,9 +1006,16 @@ function Sales() {
       return;
     }
 
+    // ========================================
+    // SELLING PRICE
+    // ========================================
+
     if (
-      formData.sellingPrice === "" ||
-      Number(formData.sellingPrice) < 0
+      formData.sellingPrice ===
+        "" ||
+      Number(
+        formData.sellingPrice
+      ) < 0
     ) {
       setError(
         "Please enter a valid selling price"
@@ -461,31 +1023,95 @@ function Sales() {
       return;
     }
 
+    // ========================================
+    // CUSTOMER
+    // ========================================
+
+    const customerName = formData.customerName.trim();
+
+    const isWalkIn =
+      !customerName ||
+      customerName.toLowerCase() ===
+        "walk-in customer";
+
+    // ========================================
+    // PAID AMOUNT
+    // ========================================
+
+    const payment =
+      formData.amountPaid ===
+        ""
+        ? isWalkIn
+          ? totalAmount
+          : 0
+        : Number(
+            formData.amountPaid
+          );
+
+    if (
+      Number.isNaN(payment) ||
+      payment < 0
+    ) {
+      setError(
+        "Please enter a valid paid amount"
+      );
+      return;
+    }
+
+    // ========================================
+    // WALK-IN
+    // ========================================
+
+    if (
+      isWalkIn &&
+      payment < totalAmount
+    ) {
+      setError(
+        "Enter a customer name if you want to give credit. Walk-in Customer must pay the full sale amount."
+      );
+      return;
+    }
+
+    // ========================================
+    // PAYMENT LIMIT
+    // ========================================
+
+    const calculatedTotalDue =
+      Number(
+        customerBalance || 0
+      ) +
+      totalAmount;
+
+    if (
+      payment >
+      calculatedTotalDue
+    ) {
+      setError(
+        `Paid amount cannot exceed total amount due of ${formatPKR(
+          calculatedTotalDue
+        )}`
+      );
+      return;
+    }
+
     try {
       setSaving(true);
 
-      // ========================================
-      // DETERMINE METHOD AND URL
-      // ========================================
-
       const isEditing =
-        Boolean(editingSaleId);
+        Boolean(
+          editingSaleId
+        );
 
       const url = isEditing
-        ? `http://localhost:5000/api/sales/${editingSaleId}`
-        : "http://localhost:5000/api/sales";
+        ? api(`/api/sales/${editingSaleId}`)
+        : api("/api/sales");
 
       const method = isEditing
         ? "PUT"
         : "POST";
 
-      // ========================================
-      // REQUEST
-      // ========================================
-
-      const response = await fetch(
-        url,
-        {
+      const response =
+        await fetch(url, {
           method,
 
           credentials: "include",
@@ -499,16 +1125,23 @@ function Sales() {
             productId:
               formData.productId,
 
+            customerId: formData.customerId || undefined,
+
             customerName:
-              formData.customerName.trim(),
+              customerName,
 
             quantity:
-              Number(formData.quantity),
+              Number(
+                formData.quantity
+              ),
 
             sellingPrice:
               Number(
                 formData.sellingPrice
               ),
+
+            amountPaid:
+              payment,
 
             saleDate:
               formData.saleDate ||
@@ -517,8 +1150,7 @@ function Sales() {
             notes:
               formData.notes.trim(),
           }),
-        }
-      );
+        });
 
       const data =
         await response.json();
@@ -534,10 +1166,6 @@ function Sales() {
         );
       }
 
-      // ========================================
-      // GET UPDATED SALE
-      // ========================================
-
       const updatedSale =
         data.sale;
 
@@ -548,24 +1176,35 @@ function Sales() {
       }
 
       // ========================================
-      // RESET FORM
+      // RESET
       // ========================================
 
-      setFormData(emptyForm);
+      setFormData(
+        emptyForm
+      );
 
       setShowForm(false);
 
-      setEditingSaleId(null);
+      setEditingSaleId(
+        null
+      );
+
+      setCustomerBalance(0);
 
       // ========================================
       // OPEN INVOICE
       // ========================================
 
-      setInvoiceSale(updatedSale);
-      setInvoiceViewOnly(false);
+      setInvoiceSale(
+        updatedSale
+      );
+
+      setInvoiceViewOnly(
+        false
+      );
 
       // ========================================
-      // REFRESH PRODUCTS
+      // REFRESH
       // ========================================
 
       await getProducts();
@@ -580,7 +1219,9 @@ function Sales() {
         );
       }
     } catch (error) {
-      setError(error.message);
+      setError(
+        error.message
+      );
     } finally {
       setSaving(false);
     }
@@ -595,135 +1236,87 @@ function Sales() {
       return;
     }
 
-    // ========================================
-    // GET PRODUCT ID
-    // ========================================
-
     const productId =
       invoiceSale.product?._id ||
       invoiceSale.product;
 
-    // ========================================
-    // CONVERT DATE
-    // ========================================
-
     let saleDate = "";
 
-    if (invoiceSale.saleDate) {
+    if (
+      invoiceSale.saleDate
+    ) {
       const date =
-        new Date(invoiceSale.saleDate);
+        new Date(
+          invoiceSale.saleDate
+        );
 
-      if (!Number.isNaN(date.getTime())) {
-        saleDate = date
-          .toISOString()
-          .split("T")[0];
+      if (
+        !Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        saleDate =
+          date
+            .toISOString()
+            .split("T")[0];
       }
     }
-
-    // ========================================
-    // LOAD SALE INTO FORM
-    // ========================================
 
     setFormData({
       productId:
         productId || "",
 
+      customerId:
+        invoiceSale.customer?._id || invoiceSale.customer || "",
+
       customerName:
         invoiceSale.customerName ===
         "Walk-in Customer"
           ? ""
-          : invoiceSale.customerName || "",
+          : invoiceSale.customerName ||
+            "",
 
       quantity:
-        invoiceSale.quantity || "",
+        invoiceSale.quantity ||
+        "",
 
       sellingPrice:
-        invoiceSale.sellingPrice ?? "",
+        invoiceSale.sellingPrice ??
+        "",
+
+      amountPaid:
+        invoiceSale.amountPaid ??
+        "",
 
       saleDate,
 
       notes:
-        invoiceSale.notes || "",
+        invoiceSale.notes ||
+        "",
     });
-
-    // ========================================
-    // SET EDIT MODE
-    // ========================================
 
     setEditingSaleId(
       invoiceSale._id
     );
 
-    // ========================================
-    // CLOSE INVOICE
-    // ========================================
-
-    setInvoiceSale(null);
-
-    // ========================================
-    // OPEN FORM
-    // ========================================
-
-    setShowForm(true);
-
-    setError("");
-
-    setSuccess("");
-  }
-
-  // ==========================================
-  // EDIT FROM TABLE ROW
-  // ==========================================
-
-  function handleEditRow(sale) {
-    if (!sale) return;
-
-    const productId = sale.product?._id || sale.product;
-
-    let saleDate = "";
-
-    if (sale.saleDate) {
-      const date = new Date(sale.saleDate);
-
-      if (!Number.isNaN(date.getTime())) {
-        saleDate = date.toISOString().split("T")[0];
-      }
-    }
-
-    setFormData({
-      productId: productId || "",
-
-      customerName:
-        sale.customerName === "Walk-in Customer"
-          ? ""
-          : sale.customerName || "",
-
-      quantity: sale.quantity || "",
-
-      sellingPrice: sale.sellingPrice ?? "",
-
-      saleDate,
-
-      notes: sale.notes || "",
-    });
-
-    setEditingSaleId(sale._id);
-
     setInvoiceSale(null);
 
     setShowForm(true);
 
     setError("");
-
     setSuccess("");
+
+    setCustomerBalance(Number(invoiceSale.customer?.balance || 0));
   }
 
   // ==========================================
-  // DONE / FINALIZE SALE
+  // FINALIZE SALE
   // ==========================================
 
   async function handleDoneInvoice() {
-    if (!invoiceSale?._id) {
+    if (
+      !invoiceSale?._id
+    ) {
       setError(
         "Invalid sale. Cannot finalize."
       );
@@ -731,16 +1324,21 @@ function Sales() {
     }
 
     try {
-      setFinalizing(true);
+      setFinalizing(
+        true
+      );
 
       setError("");
 
       const response =
         await fetch(
-          `http://localhost:5000/api/sales/${invoiceSale._id}/finalize`,
+          api(`/api/sales/${invoiceSale._id}/finalize`),
           {
             method: "POST",
-            credentials: "include",
+
+            credentials:
+              "include",
+
             headers: {
               "Content-Type":
                 "application/json",
@@ -762,24 +1360,31 @@ function Sales() {
       // CLOSE INVOICE
       // ========================================
 
-      setInvoiceSale(null);
+      setInvoiceSale(
+        null
+      );
 
       // ========================================
-      // REFRESH PRODUCTS + SALES
+      // REFRESH
       // ========================================
 
       await Promise.all([
         getProducts(),
         getSales(),
+        getCustomers(),
       ]);
 
       setSuccess(
         "Sale completed successfully!"
       );
     } catch (error) {
-      setError(error.message);
+      setError(
+        error.message
+      );
     } finally {
-      setFinalizing(false);
+      setFinalizing(
+        false
+      );
     }
   }
 
@@ -790,12 +1395,17 @@ function Sales() {
   function cancelForm() {
     setShowForm(false);
 
-    setFormData(emptyForm);
+    setFormData(
+      emptyForm
+    );
 
-    setEditingSaleId(null);
+    setEditingSaleId(
+      null
+    );
+
+    setCustomerBalance(0);
 
     setError("");
-
     setSuccess("");
   }
 
@@ -805,22 +1415,29 @@ function Sales() {
 
   function closeInvoice() {
     setInvoiceSale(null);
-    setInvoiceViewOnly(false);
+    setInvoiceViewOnly(
+      false
+    );
   }
 
   // ==========================================
-  // OPEN NEW SALE
+  // NEW SALE
   // ==========================================
 
   function openNewSale() {
     setShowForm(true);
 
-    setEditingSaleId(null);
+    setEditingSaleId(
+      null
+    );
 
-    setFormData(emptyForm);
+    setFormData(
+      emptyForm
+    );
+
+    setCustomerBalance(0);
 
     setError("");
-
     setSuccess("");
   }
 
@@ -879,7 +1496,9 @@ function Sales() {
         {!showForm && (
           <button
             className="primary-button"
-            onClick={openNewSale}
+            onClick={
+              openNewSale
+            }
           >
             + Add Sale
           </button>
@@ -908,6 +1527,56 @@ function Sales() {
       )}
 
       {/* ======================================
+          CASH FLOW SUMMARY
+      ====================================== */}
+
+      <div className="cash-flow-section">
+
+        <div className="cash-flow-card">
+
+          <span>
+            Total Sales
+          </span>
+
+          <strong>
+            {formatPKR(
+              totalSalesAmount
+            )}
+          </strong>
+
+        </div>
+
+        <div className="cash-flow-card">
+
+          <span>
+            Cash Received
+          </span>
+
+          <strong>
+            {formatPKR(
+              totalCashReceived
+            )}
+          </strong>
+
+        </div>
+
+        <div className="cash-flow-card">
+
+          <span>
+            Outstanding
+          </span>
+
+          <strong>
+            {formatPKR(
+              totalOutstanding
+            )}
+          </strong>
+
+        </div>
+
+      </div>
+
+      {/* ======================================
           ADD / EDIT SALE FORM
       ====================================== */}
 
@@ -925,7 +1594,9 @@ function Sales() {
             <button
               type="button"
               className="close-button"
-              onClick={cancelForm}
+              onClick={
+                cancelForm
+              }
               disabled={saving}
             >
               ×
@@ -934,7 +1605,9 @@ function Sales() {
           </div>
 
           <form
-            onSubmit={handleSubmit}
+            onSubmit={
+              handleSubmit
+            }
           >
 
             <div className="sale-form-grid">
@@ -965,11 +1638,17 @@ function Sales() {
                   {products.map(
                     (product) => (
                       <option
-                        key={product._id}
-                        value={product._id}
+                        key={
+                          product._id
+                        }
+                        value={
+                          product._id
+                        }
                       >
                         {product.name} (
-                        {product.sku})
+                        {
+                          product.sku
+                        })
                       </option>
                     )
                   )}
@@ -982,20 +1661,48 @@ function Sales() {
 
               <div className="form-field">
 
+                <label>Customer</label>
+
+                <select
+                  value={formData.customerId}
+                  onChange={handleCustomerChange}
+                >
+                  <option value="">Walk-in Customer</option>
+                  {customers.map((customer) => (
+                    <option key={customer._id} value={customer._id}>
+                      {customer.name} — {formatPKR(customer.balance)} due
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => setShowNewCustomer(true)}
+                >
+                  + Create new customer
+                </button>
+
+                <small>
+                  Select a customer to retrieve their current balance.
+                </small>
+
+              </div>
+
+              {/* PREVIOUS BALANCE */}
+
+              <div className="form-field">
+
                 <label>
-                  Customer Name
+                  Previous Balance
                 </label>
 
                 <input
                   type="text"
-                  name="customerName"
                   value={
-                    formData.customerName
+                    formatPKR(customerBalance)
                   }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Walk-in Customer"
+                  readOnly
                 />
 
               </div>
@@ -1070,18 +1777,82 @@ function Sales() {
 
               </div>
 
-              {/* TOTAL */}
+              {/* NEW SALE TOTAL */}
 
               <div className="form-field">
 
                 <label>
-                  Total Amount (PKR)
+                  New Sale Total
                 </label>
 
                 <input
                   type="text"
                   value={formatPKR(
                     totalAmount
+                  )}
+                  readOnly
+                />
+
+              </div>
+
+              {/* TOTAL DUE */}
+
+              <div className="form-field">
+
+                <label>
+                  Total Due
+                </label>
+
+                <input
+                  type="text"
+                  value={formatPKR(
+                    totalDue
+                  )}
+                  readOnly
+                />
+
+              </div>
+
+              {/* PAID NOW */}
+
+              <div className="form-field">
+
+                <label>
+                  Paid Now (PKR)
+                </label>
+
+                <input
+                  type="number"
+                  name="amountPaid"
+                  value={
+                    formData.amountPaid
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  placeholder={
+                    formData.customerName
+                      ? "Amount customer pays"
+                      : "Full amount"
+                  }
+                  min="0"
+                  step="0.01"
+                />
+
+              </div>
+
+              {/* REMAINING */}
+
+              <div className="form-field">
+
+                <label>
+                  Remaining Balance
+                </label>
+
+                <input
+                  type="text"
+                  value={formatPKR(
+                    remainingBalance
                   )}
                   readOnly
                 />
@@ -1152,7 +1923,75 @@ function Sales() {
             </div>
 
             {/* ==================================
-                FORM BUTTONS
+                PAYMENT SUMMARY
+            ================================== */}
+
+            <div className="payment-summary">
+
+              <div>
+                <span>
+                  Previous Balance
+                </span>
+
+                <strong>
+                  {formatPKR(
+                    customerBalance
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  New Sale
+                </span>
+
+                <strong>
+                  {formatPKR(
+                    totalAmount
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Total Due
+                </span>
+
+                <strong>
+                  {formatPKR(
+                    totalDue
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Paid Now
+                </span>
+
+                <strong>
+                  {formatPKR(
+                    paidAmount
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Remaining
+                </span>
+
+                <strong>
+                  {formatPKR(
+                    remainingBalance
+                  )}
+                </strong>
+              </div>
+
+            </div>
+
+            {/* ==================================
+                BUTTONS
             ================================== */}
 
             <div className="form-actions">
@@ -1160,7 +1999,9 @@ function Sales() {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={cancelForm}
+                onClick={
+                  cancelForm
+                }
                 disabled={saving}
               >
                 Cancel
@@ -1186,6 +2027,29 @@ function Sales() {
 
         </div>
       )}
+
+      <div className="sales-table-card customer-list-card">
+        <div className="table-header">
+          <h2>Customers</h2>
+          <span>{customers.length} customer{customers.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="sales-table-wrapper">
+          <table className="sales-table">
+            <thead><tr><th>Customer Name</th><th>Phone</th><th>Current Outstanding</th><th>Actions</th></tr></thead>
+            <tbody>
+              {customers.map((customer) => (
+                <tr key={customer._id}>
+                  <td>{customer.name}</td>
+                  <td>{customer.phone || "-"}</td>
+                  <td>{formatPKR(customer.balance)}</td>
+                  <td><button type="button" className="secondary-button" onClick={() => openCustomerAccount(customer._id)}>View</button></td>
+                </tr>
+              ))}
+              {customers.length === 0 && <tr><td colSpan="4">No customers yet.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* ======================================
           SALES HISTORY
@@ -1251,23 +2115,27 @@ function Sales() {
                   </th>
 
                   <th>
-                    Selling Price (PKR)
+                    Selling Price
                   </th>
 
                   <th>
-                    Total (PKR)
+                    Total
                   </th>
 
                   <th>
-                    Profit (PKR)
+                    Paid
+                  </th>
+
+                  <th>
+                    Remaining
+                  </th>
+
+                  <th>
+                    Profit
                   </th>
 
                   <th>
                     Date
-                  </th>
-
-                  <th>
-                    Notes
                   </th>
 
                   <th>
@@ -1284,7 +2152,9 @@ function Sales() {
                   (sale) => (
 
                     <tr
-                      key={sale._id}
+                      key={
+                        sale._id
+                      }
                     >
 
                       <td>
@@ -1320,6 +2190,18 @@ function Sales() {
 
                       <td>
                         {formatPKR(
+                          sale.amountPaid
+                        )}
+                      </td>
+
+                      <td>
+                        {formatPKR(
+                          sale.remainingBalance
+                        )}
+                      </td>
+
+                      <td>
+                        {formatPKR(
                           sale.profit
                         )}
                       </td>
@@ -1333,18 +2215,18 @@ function Sales() {
                       </td>
 
                       <td>
-                        {sale.notes ||
-                          "-"}
-                      </td>
-
-                      <td>
 
                         <button
                           type="button"
                           className="secondary-button"
                           onClick={() => {
-                            setInvoiceSale(sale);
-                            setInvoiceViewOnly(true);
+                            setInvoiceSale(
+                              sale
+                            );
+
+                            setInvoiceViewOnly(
+                              true
+                            );
                           }}
                         >
                           View
@@ -1354,13 +2236,13 @@ function Sales() {
                           type="button"
                           className="invoice-button"
                           onClick={() =>
-                            downloadInvoice(sale)
+                            downloadInvoice(
+                              sale
+                            )
                           }
                         >
                           Download
                         </button>
-
-                        {/* Edit removed from sales history rows */}
 
                       </td>
 
@@ -1380,7 +2262,7 @@ function Sales() {
       </div>
 
       {/* ======================================
-          INVOICE REVIEW MODAL
+          INVOICE MODAL
       ====================================== */}
 
       {invoiceSale && (
@@ -1389,9 +2271,7 @@ function Sales() {
 
           <div className="invoice-modal">
 
-            {/* ==================================
-                MODAL HEADER
-            ================================== */}
+            {/* HEADER */}
 
             <div className="invoice-modal-header">
 
@@ -1425,12 +2305,10 @@ function Sales() {
             </div>
 
             {/* ==================================
-                INVOICE PREVIEW
+                INVOICE
             ================================== */}
 
             <div className="invoice-preview">
-
-              {/* INVOICE HEADER */}
 
               <div className="invoice-preview-top">
 
@@ -1465,7 +2343,7 @@ function Sales() {
 
               </div>
 
-              {/* BILL TO / DATE */}
+              {/* BILL TO */}
 
               <div className="invoice-info">
 
@@ -1489,7 +2367,6 @@ function Sales() {
                   </span>
 
                   <strong>
-
                     {invoiceSale.saleDate
                       ? new Date(
                           invoiceSale.saleDate
@@ -1504,7 +2381,6 @@ function Sales() {
                       : new Date().toLocaleDateString(
                           "en-PK"
                         )}
-
                   </strong>
 
                 </div>
@@ -1548,7 +2424,9 @@ function Sales() {
                   </span>
 
                   <strong>
-                    {invoiceSale.quantity}
+                    {
+                      invoiceSale.quantity
+                    }
                   </strong>
 
                 </div>
@@ -1569,35 +2447,88 @@ function Sales() {
 
               </div>
 
-              {/* TOTAL */}
+              {/* ==================================
+                  CASH FLOW
+              ================================== */}
 
-              <div className="invoice-total">
+              <div className="invoice-cash-flow">
 
-                <span>
-                  Total Amount
-                </span>
+                <div>
 
-                <strong>
-                  {formatPKR(
-                    invoiceSale.totalAmount
-                  )}
-                </strong>
+                  <span>
+                    Previous Balance
+                  </span>
 
-              </div>
+                  <strong>
+                    {formatPKR(
+                      invoiceSale.previousBalance
+                    )}
+                  </strong>
 
-              {/* PROFIT */}
+                </div>
 
-              <div className="invoice-total">
+                <div>
 
-                <span>
-                  Estimated Profit
-                </span>
+                  <span>
+                    New Sale
+                  </span>
 
-                <strong>
-                  {formatPKR(
-                    invoiceSale.profit
-                  )}
-                </strong>
+                  <strong>
+                    {formatPKR(
+                      invoiceSale.totalAmount
+                    )}
+                  </strong>
+
+                </div>
+
+                <div>
+
+                  <span>
+                    Total Due
+                  </span>
+
+                  <strong>
+                    {formatPKR(
+                      Number(
+                        invoiceSale.previousBalance ||
+                          0
+                      ) +
+                        Number(
+                          invoiceSale.totalAmount ||
+                            0
+                        )
+                    )}
+                  </strong>
+
+                </div>
+
+                <div>
+
+                  <span>
+                    Paid Now
+                  </span>
+
+                  <strong>
+                    {formatPKR(
+                      invoiceSale.amountPaid
+                    )}
+                  </strong>
+
+                </div>
+
+                <div className="remaining-row">
+
+                  <span>
+                    Remaining Balance
+                  </span>
+
+                  <strong>
+                    {formatPKR(
+                      invoiceSale.remainingBalance
+                    )}
+                  </strong>
+
+                </div>
 
               </div>
 
@@ -1612,7 +2543,9 @@ function Sales() {
                   </span>
 
                   <p>
-                    {invoiceSale.notes}
+                    {
+                      invoiceSale.notes
+                    }
                   </p>
 
                 </div>
@@ -1631,30 +2564,43 @@ function Sales() {
             </div>
 
             {/* ==================================
-                INVOICE ACTIONS
+                ACTIONS
             ================================== */}
 
             <div className="invoice-modal-actions">
+
               {invoiceViewOnly ? (
+
                 <button
                   type="button"
                   className="secondary-button"
                   onClick={() =>
-                    downloadInvoice(invoiceSale)
+                    downloadInvoice(
+                      invoiceSale
+                    )
                   }
-                  disabled={finalizing}
+                  disabled={
+                    finalizing
+                  }
                 >
                   Download Invoice
                 </button>
+
               ) : (
+
                 <>
+
                   {/* EDIT */}
 
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={handleEditInvoice}
-                    disabled={finalizing}
+                    onClick={
+                      handleEditInvoice
+                    }
+                    disabled={
+                      finalizing
+                    }
                   >
                     Edit
                   </button>
@@ -1665,31 +2611,83 @@ function Sales() {
                     type="button"
                     className="secondary-button"
                     onClick={() =>
-                      downloadInvoice(invoiceSale)
+                      downloadInvoice(
+                        invoiceSale
+                      )
                     }
-                    disabled={finalizing}
+                    disabled={
+                      finalizing
+                    }
                   >
                     Download Invoice
                   </button>
 
-                  {/* DONE */}
+                  {/* CONFIRM */}
 
                   <button
                     type="button"
                     className="primary-button"
-                    onClick={handleDoneInvoice}
-                    disabled={finalizing}
+                    onClick={
+                      handleDoneInvoice
+                    }
+                    disabled={
+                      finalizing
+                    }
                   >
-                    {finalizing ? "Completing..." : "Confirm"}
+                    {finalizing
+                      ? "Completing..."
+                      : "Confirm"}
                   </button>
+
                 </>
+
               )}
+
             </div>
 
           </div>
 
         </div>
 
+      )}
+
+      {showNewCustomer && (
+        <div className="invoice-modal-overlay">
+          <form className="invoice-modal customer-modal" onSubmit={createCustomer}>
+            <div className="invoice-modal-header">
+              <div><h2>New Customer</h2><p>Create and select a customer for this sale.</p></div>
+              <button type="button" className="close-button" onClick={() => setShowNewCustomer(false)}>×</button>
+            </div>
+            <div className="invoice-preview customer-form-fields">
+              <label>Name *<input required value={newCustomer.name} onChange={(event) => setNewCustomer((previous) => ({ ...previous, name: event.target.value }))} /></label>
+              <label>Phone<input value={newCustomer.phone} onChange={(event) => setNewCustomer((previous) => ({ ...previous, phone: event.target.value }))} /></label>
+            </div>
+            <div className="invoice-modal-actions"><button type="button" className="secondary-button" onClick={() => setShowNewCustomer(false)}>Cancel</button><button className="primary-button" type="submit">Create Customer</button></div>
+          </form>
+        </div>
+      )}
+
+      {customerAccount && (
+        <div className="invoice-modal-overlay">
+          <div className="invoice-modal customer-account-modal">
+            <div className="invoice-modal-header">
+              <div><h2>{customerAccount.customer.name}</h2><p>{customerAccount.customer.phone || "No phone number"} · Outstanding: {formatPKR(customerAccount.customer.balance)}</p></div>
+              <button type="button" className="close-button" onClick={() => setCustomerAccount(null)}>×</button>
+            </div>
+            <form className="receive-payment" onSubmit={receivePayment}>
+              <label>Receive Payment (PKR)<input required min="0.01" max={customerAccount.customer.balance} step="0.01" type="number" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
+              <button type="submit" className="primary-button">Record Payment</button>
+            </form>
+            <div className="sales-table-wrapper account-history">
+              <table className="sales-table">
+                <thead><tr><th>Date</th><th>Type</th><th>Sale</th><th>Payment</th><th>Balance</th></tr></thead>
+                <tbody>{customerAccount.transactions.map((transaction) => (
+                  <tr key={transaction._id}><td>{new Date(transaction.createdAt).toLocaleDateString()}</td><td>{transaction.type === "sale" ? "Sale" : "Payment"}</td><td>{transaction.type === "sale" ? formatPKR(transaction.sale?.totalAmount || transaction.amount) : "-"}</td><td>{transaction.type === "sale" ? formatPKR(transaction.sale?.amountPaid || 0) : formatPKR(transaction.amount)}</td><td>{formatPKR(transaction.balanceAfter)}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

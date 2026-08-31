@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Purchases.css";
 import { formatPKR } from "../utils/currency";
+import { api } from "../utils/api";
 
 function Purchases() {
   const navigate = useNavigate();
@@ -31,13 +32,10 @@ function Purchases() {
 
   async function getProducts() {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/products",
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(api("/api/products"), {
+        method: "GET",
+        credentials: "include",
+      });
 
       const data = await response.json();
 
@@ -57,13 +55,10 @@ function Purchases() {
 
   async function getPurchases() {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/purchases",
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
+      const response = await fetch(api("/api/purchases"), {
+        method: "GET",
+        credentials: "include",
+      });
 
       const data = await response.json();
 
@@ -183,25 +178,21 @@ function Purchases() {
     try {
       setSaving(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/purchases",
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            productId: formData.productId,
-            supplierName: formData.supplierName,
-            quantity: Number(formData.quantity),
-            costPrice: Number(formData.costPrice),
-            purchaseDate:
-              formData.purchaseDate || undefined,
-            notes: formData.notes,
-          }),
-        }
-      );
+      const response = await fetch(api("/api/purchases"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: formData.productId,
+          supplierName: formData.supplierName,
+          quantity: Number(formData.quantity),
+          costPrice: Number(formData.costPrice),
+          purchaseDate: formData.purchaseDate || undefined,
+          notes: formData.notes,
+        }),
+      });
 
       const data = await response.json();
 

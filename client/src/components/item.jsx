@@ -16,9 +16,7 @@ function Items() {
   
   async function getItems() {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/items"
-      );
+      const response = await fetch(api("/api/items"));
 
       const data = await response.json();
 
@@ -37,20 +35,17 @@ function Items() {
   
   async function createItem() {
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/items",
-        {
-          method: "POST",
+      const response = await fetch(api("/api/items"), {
+        method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-          body: JSON.stringify({
-            name: name,
-          }),
-        }
-      );
+        body: JSON.stringify({
+          name: name,
+        }),
+      });
 
       const data = await response.json();
 
@@ -71,12 +66,9 @@ function Items() {
   
   async function deleteItem(id) {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/items/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(api(`/api/items/${id}`), {
+        method: "DELETE",
+      });
 
       const data = await response.json();
 
@@ -99,20 +91,17 @@ function Items() {
   
   async function updateItem() {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/items/${editId}`,
-        {
-          method: "PUT",
+      const response = await fetch(api(`/api/items/${editId}`), {
+        method: "PUT",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-          body: JSON.stringify({
-            name: editName,
-          }),
-        }
-      );
+        body: JSON.stringify({
+          name: editName,
+        }),
+      });
 
       const data = await response.json();
 

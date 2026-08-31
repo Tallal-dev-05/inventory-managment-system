@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Admin.css";
 import { formatPKR } from "../utils/currency";
+import { api } from "../utils/api";
 
 function Admin() {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ function Admin() {
   const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [sales, setSales] = useState([]);
+  const [customers, setCustomers] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,16 +30,21 @@ function Admin() {
           productsResponse,
           purchasesResponse,
           salesResponse,
+          customersResponse,
         ] = await Promise.all([
-          fetch("http://localhost:5000/api/products", {
+          fetch(api("/api/products"), {
             credentials: "include",
           }),
 
-          fetch("http://localhost:5000/api/purchases", {
+            fetch(api("/api/purchases"), {
             credentials: "include",
           }),
 
-          fetch("http://localhost:5000/api/sales", {
+            fetch(api("/api/sales"), {
+            credentials: "include",
+          }),
+
+            fetch(api("/api/customers"), {
             credentials: "include",
           }),
         ]);
@@ -45,6 +52,7 @@ function Admin() {
         const productsData = await productsResponse.json();
         const purchasesData = await purchasesResponse.json();
         const salesData = await salesResponse.json();
+        const customersData = await customersResponse.json();
 
         if (!productsResponse.ok) {
           throw new Error(
@@ -64,9 +72,16 @@ function Admin() {
           );
         }
 
+        if (!customersResponse.ok) {
+          throw new Error(
+            customersData.message || "Failed to load customers"
+          );
+        }
+
         setProducts(productsData.products || []);
         setPurchases(purchasesData.purchases || []);
         setSales(salesData.sales || []);
+        setCustomers(customersData.customers || []);
       } catch (error) {
         setError(error.message);
       } finally {
@@ -83,13 +98,10 @@ function Admin() {
 
   const handleLogout = async () => {
     try {
-      await fetch(
-        "http://localhost:5000/api/auth/logout",
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      await fetch(api("/api/auth/logout"), {
+        method: "POST",
+        credentials: "include",
+      });
     } finally {
       navigate("/signin", { replace: true });
     }
@@ -128,6 +140,12 @@ function Admin() {
   const totalProfit = sales.reduce(
     (total, sale) =>
       total + Number(sale.profit || 0),
+    0
+  );
+
+  const totalOutstanding = customers.reduce(
+    (total, customer) =>
+      total + Number(customer.balance || 0),
     0
   );
 
@@ -419,6 +437,28 @@ function Admin() {
 
             <div className="stat-description">
               Total profit earned
+            </div>
+
+          </div>
+
+          <div className="stat-card stat-outstanding">
+
+            <div className="stat-top">
+              <div className="stat-icon">
+                ₨
+              </div>
+
+              <span className="stat-label">
+                OUTSTANDING
+              </span>
+            </div>
+
+            <div className="stat-value money">
+              {formatPKR(totalOutstanding)}
+            </div>
+
+            <div className="stat-description">
+              Customer credit due
             </div>
 
           </div>

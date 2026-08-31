@@ -1,11 +1,12 @@
 import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { api } from "../utils/api";
 
 function ProtectedRoute({ children, allowedRole }) {
   const [user, setUser] = useState();
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/auth/me", { credentials: "include" })
+    fetch(api("/api/auth/me"), { credentials: "include" })
       .then(async (response) => (response.ok ? response.json() : null))
       .then((result) => setUser(result?.user ?? null))
       .catch(() => setUser(null));
