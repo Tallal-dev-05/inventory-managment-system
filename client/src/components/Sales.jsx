@@ -1,7 +1,96 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
-import "./Sales.css";
+
+// Inline Tailwind-like class utilities (kept as strings for readability)
+const pageClass =
+  "w-full min-h-screen p-[22px_26px_30px] bg-[#0b0e13] text-[#e8eaf2] text-[11px] font-sans";
+
+const headerClass =
+  "min-h-[64px] flex items-start justify-between gap-4 mb-5 pb-4 border-b border-[#232839]";
+
+const titleClass = "mt-[7px] mb-[3px] text-[#f2f3f7] text-[20px] leading-[1.2]";
+const subtitleClass = "m-0 text-[#7c86a5] text-[10px] leading-[1.5]";
+
+const backButtonClass =
+  "p-0 border-0 bg-transparent text-[#8582ff] text-[9px] font-bold cursor-pointer";
+
+const inputClass =
+  "w-full min-w-0 h-[34px] px-2.5 rounded-[7px] border border-[#232839] outline-none bg-[#10141d] text-[#e8eaf2] text-[10px] transition focus:border-[#6865f5] focus:ring-[#6865f5]/15 placeholder:text-[#5f6882]";
+
+const textareaClass =
+  "w-full min-w-0 min-h-[65px] px-2.5 py-2 rounded-[7px] border border-[#232839] outline-none bg-[#10141d] text-[#e8eaf2] text-[10px] leading-[1.5] resize-y transition focus:border-[#6865f5] focus:ring-[#6865f5]/15 placeholder:text-[#5f6882]";
+
+const selectClass =
+  "w-full min-w-0 h-[34px] px-2.5 rounded-[7px] border border-[#232839] outline-none bg-[#10141d] text-[#e8eaf2] text-[10px] cursor-pointer transition focus:border-[#6865f5] focus:ring-[#6865f5]/15";
+
+const primaryButton =
+  "min-h-[34px] px-[13px] rounded-[7px] border border-[#6865f5] bg-[#6865f5] text-white text-[9px] font-bold cursor-pointer transition hover:bg-[#7773ff] hover:border-[#7773ff] hover:-translate-y-px disabled:opacity-55 disabled:cursor-not-allowed";
+
+const secondaryButton =
+  "min-h-[34px] px-[13px] rounded-[7px] border border-[#2c3246] bg-[#1a1f2e] text-[#bbc2db] text-[9px] font-bold cursor-pointer transition hover:border-[#3a425a] hover:bg-[#22283a] disabled:opacity-55 disabled:cursor-not-allowed";
+
+const invoiceButton =
+  "min-h-[34px] px-[13px] rounded-[7px] border border-[#075844] bg-[#07372d] text-[#00c995] text-[9px] font-bold cursor-pointer transition hover:bg-[#00c995] hover:text-[#071912]";
+
+const successClass =
+  "mb-3 p-2.5 border rounded-[7px] text-[9px] bg-[#07372d] border-[#075844] text-[#00c995]";
+
+const errorClass =
+  "mb-3 p-2.5 border rounded-[7px] text-[9px] bg-[#28171d] border-[#64323c] text-[#ff8b96]";
+
+const cashFlowGrid = "grid grid-cols-3 gap-2.5 mb-4";
+const cashFlowCard =
+  "relative min-h-[90px] p-3.5 border rounded-[10px] bg-[#121620] border-[#232839]";
+
+const saleFormCard = "mb-4 p-4 border rounded-[10px] bg-[#121620] border-[#232839]";
+const saleFormHeader =
+  "flex items-start justify-between gap-4 mb-3 pb-3 border-b border-[#232839]";
+
+const closeButtonClass =
+  "w-7 h-7 grid place-items-center flex-shrink-0 p-0 border rounded-[7px] bg-[#1a1f2e] border-[#2b3144] text-[#9aa3bf] text-[18px] cursor-pointer";
+
+const formGrid = "grid grid-cols-3 gap-3";
+const formField = "min-w-0 flex flex-col gap-1.5";
+const labelClass = "text-[9px] font-bold text-[#aeb5ca]";
+const linkButtonClass = "self-start p-0 bg-transparent text-[#8d89ff] text-[8px] font-bold";
+const fullWidthClass = "col-span-full";
+
+const paymentSummaryClass =
+  "grid grid-cols-5 gap-[1px] mt-3 overflow-hidden border rounded-[9px] bg-[#232839]";
+const paymentSummaryCell = "min-w-0 p-2.5 bg-[#10141d]";
+
+const formActionsClass =
+  "flex justify-end gap-2 mt-3 pt-3 border-t border-[#232839]";
+
+const tableCard = "w-full min-w-0 mb-4 overflow-hidden border rounded-[10px] bg-[#121620] border-[#232839]";
+const tableHeaderClass =
+  "min-h-[54px] flex items-center justify-between gap-4 p-3 border-b border-[#232839]";
+const tableHeaderH2 = "m-0 text-[#f0f1f6] text-[13px]";
+const tableBadge = "flex-shrink-0 px-2 py-1 rounded-full bg-[#202441] text-[#9592ff] text-[8px] font-bold";
+
+const tableWrapper = "w-full max-w-full overflow-x-auto";
+const thClass =
+  "h-[36px] px-2.5 border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-[7px] font-extrabold uppercase whitespace-nowrap";
+const tdClass =
+  "h-[50px] px-2.5 border-b border-[#202637] text-[#adb5ca] text-[8px] align-middle whitespace-nowrap overflow-hidden";
+
+const invoiceOverlay = "fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 bg-black/80 backdrop-blur-sm";
+const invoiceModalClass =
+  "w-full max-w-[690px] max-h-[calc(100vh-36px)] overflow-y-auto border rounded-[12px] bg-[#121620] border-[#2c3246]";
+const invoicePreview =
+  "m-4 p-4 border rounded-[9px] bg-[#0f131b] border-[#232839]";
+const invoiceTop = "flex items-start justify-between gap-4 pb-3 border-b border-[#232839]";
+const invoiceNumberClass = "flex flex-col items-end gap-1 text-right";
+const invoiceInfoClass = "flex justify-between gap-6 py-3";
+const invoiceProductClass =
+  "grid grid-cols-[minmax(130px,2fr)_minmax(70px,1fr)_minmax(60px,0.7fr)_minmax(100px,1.3fr)] gap-2 p-3 border rounded-[8px] bg-[#151925] border-[#232839]";
+const invoiceCashFlowClass =
+  "grid grid-cols-2 gap-[1px] mt-3 overflow-hidden border rounded-[8px] bg-[#232839]";
+const invoiceNotesClass = "pt-3";
+const invoiceThankYouClass = "mt-4 text-[#7c86a5] text-[8px] text-center";
+const invoiceActionsClass =
+  "sticky bottom-0 z-10 flex justify-end gap-2 p-3 border-t border-[#232839] bg-[rgba(15,19,27,0.97)] backdrop-blur-sm";
 import { formatPKR } from "../utils/currency";
 import { api } from "../utils/api";
 
@@ -1447,12 +1536,10 @@ function Sales() {
 
   if (loading) {
     return (
-      <div className="sales-page">
-        <h1>Sales</h1>
+      <div className={pageClass}>
+        <h1 className={titleClass}>Sales</h1>
 
-        <p>
-          Loading sales...
-        </p>
+        <p className={subtitleClass}>Loading sales...</p>
       </div>
     );
   }
@@ -1462,44 +1549,34 @@ function Sales() {
   // ==========================================
 
   return (
-    <div className="sales-page">
+    <div className={pageClass}>
 
       {/* ======================================
           HEADER
       ====================================== */}
 
-      <div className="sales-header">
+      <div className={headerClass}>
 
         <div>
 
           <button
-            className="dashboard-back-button"
+            className={backButtonClass}
             type="button"
             onClick={() =>
               navigate("/admin")
             }
           >
-            Back to dashboard
+            ← Back to dashboard
           </button>
 
-          <h1 className="sales-title">
-            Sales
-          </h1>
+          <h1 className={titleClass}>Sales</h1>
 
-          <p className="sales-subtitle">
-            Record products sold to
-            customers
-          </p>
+          <p className={subtitleClass}>Record products sold to customers</p>
 
         </div>
 
         {!showForm && (
-          <button
-            className="primary-button"
-            onClick={
-              openNewSale
-            }
-          >
+          <button className={primaryButton} onClick={openNewSale}>
             + Add Sale
           </button>
         )}
@@ -1510,70 +1587,33 @@ function Sales() {
           SUCCESS
       ====================================== */}
 
-      {success && (
-        <div className="success-box">
-          {success}
-        </div>
-      )}
+      {success && <div className={successClass}>{success}</div>}
 
       {/* ======================================
           ERROR
       ====================================== */}
 
-      {error && (
-        <div className="error-box">
-          {error}
-        </div>
-      )}
+      {error && <div className={errorClass}>{error}</div>}
 
       {/* ======================================
           CASH FLOW SUMMARY
       ====================================== */}
 
-      <div className="cash-flow-section">
-
-        <div className="cash-flow-card">
-
-          <span>
-            Total Sales
-          </span>
-
-          <strong>
-            {formatPKR(
-              totalSalesAmount
-            )}
-          </strong>
-
+      <div className={cashFlowGrid}>
+        <div className={cashFlowCard}>
+          <span className="block text-[#7c86a5] text-[8px] font-[800] uppercase">Total Sales</span>
+          <strong className="block mt-3 text-[#f1f2f6] text-[19px] font-semibold">{formatPKR(totalSalesAmount)}</strong>
         </div>
 
-        <div className="cash-flow-card">
-
-          <span>
-            Cash Received
-          </span>
-
-          <strong>
-            {formatPKR(
-              totalCashReceived
-            )}
-          </strong>
-
+        <div className={cashFlowCard}>
+          <span className="block text-[#7c86a5] text-[8px] font-[800] uppercase">Cash Received</span>
+          <strong className="block mt-3 text-[#f1f2f6] text-[19px] font-semibold">{formatPKR(totalCashReceived)}</strong>
         </div>
 
-        <div className="cash-flow-card">
-
-          <span>
-            Outstanding
-          </span>
-
-          <strong>
-            {formatPKR(
-              totalOutstanding
-            )}
-          </strong>
-
+        <div className={cashFlowCard}>
+          <span className="block text-[#7c86a5] text-[8px] font-[800] uppercase">Outstanding</span>
+          <strong className="block mt-3 text-[#f1f2f6] text-[19px] font-semibold">{formatPKR(totalOutstanding)}</strong>
         </div>
-
       </div>
 
       {/* ======================================
@@ -1581,92 +1621,34 @@ function Sales() {
       ====================================== */}
 
       {showForm && (
-        <div className="sale-form-card">
+        <div className={saleFormCard}>
+          <div className={saleFormHeader}>
+            <h2 className="m-0 text-[#f0f1f6] text-[14px]">{editingSaleId ? "Edit Sale" : "Add Sale"}</h2>
 
-          <div className="sale-form-header">
-
-            <h2>
-              {editingSaleId
-                ? "Edit Sale"
-                : "Add Sale"}
-            </h2>
-
-            <button
-              type="button"
-              className="close-button"
-              onClick={
-                cancelForm
-              }
-              disabled={saving}
-            >
+            <button type="button" className={closeButtonClass} onClick={cancelForm} disabled={saving}>
               ×
             </button>
-
           </div>
 
-          <form
-            onSubmit={
-              handleSubmit
-            }
-          >
-
-            <div className="sale-form-grid">
-
+          <form onSubmit={handleSubmit}>
+            <div className={formGrid}>
               {/* PRODUCT */}
-
-              <div className="form-field">
-
-                <label>
-                  Product *
-                </label>
-
-                <select
-                  name="productId"
-                  value={
-                    formData.productId
-                  }
-                  onChange={
-                    handleProductChange
-                  }
-                  required
-                >
-
-                  <option value="">
-                    Select product
-                  </option>
-
-                  {products.map(
-                    (product) => (
-                      <option
-                        key={
-                          product._id
-                        }
-                        value={
-                          product._id
-                        }
-                      >
-                        {product.name} (
-                        {
-                          product.sku
-                        })
-                      </option>
-                    )
-                  )}
-
+              <div className={formField}>
+                <label className={labelClass}>Product *</label>
+                <select name="productId" value={formData.productId} onChange={handleProductChange} required className={selectClass}>
+                  <option value="">Select product</option>
+                  {products.map((product) => (
+                    <option key={product._id} value={product._id}>
+                      {product.name} ({product.sku})
+                    </option>
+                  ))}
                 </select>
-
               </div>
 
               {/* CUSTOMER */}
-
-              <div className="form-field">
-
-                <label>Customer</label>
-
-                <select
-                  value={formData.customerId}
-                  onChange={handleCustomerChange}
-                >
+              <div className={formField}>
+                <label className={labelClass}>Customer</label>
+                <select value={formData.customerId} onChange={handleCustomerChange} className={selectClass}>
                   <option value="">Walk-in Customer</option>
                   {customers.map((customer) => (
                     <option key={customer._id} value={customer._id}>
@@ -1675,377 +1657,144 @@ function Sales() {
                   ))}
                 </select>
 
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => setShowNewCustomer(true)}
-                >
+                <button type="button" className={linkButtonClass} onClick={() => setShowNewCustomer(true)}>
                   + Create new customer
                 </button>
 
-                <small>
-                  Select a customer to retrieve their current balance.
-                </small>
-
+                <small className="text-[#7c86a5] text-[7px]">Select a customer to retrieve their current balance.</small>
               </div>
 
               {/* PREVIOUS BALANCE */}
-
-              <div className="form-field">
-
-                <label>
-                  Previous Balance
-                </label>
-
-                <input
-                  type="text"
-                  value={
-                    formatPKR(customerBalance)
-                  }
-                  readOnly
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Previous Balance</label>
+                <input type="text" value={formatPKR(customerBalance)} readOnly className={inputClass + " bg-[#181c28] border-[#2c3246] text-[#c4cada] font-bold"} />
               </div>
 
               {/* AVAILABLE STOCK */}
-
-              <div className="form-field">
-
-                <label>
-                  Available Stock
-                </label>
-
-                <input
-                  type="text"
-                  value={
-                    selectedProduct
-                      ? selectedProduct.quantity
-                      : "-"
-                  }
-                  readOnly
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Available Stock</label>
+                <input type="text" value={selectedProduct ? selectedProduct.quantity : "-"} readOnly className={inputClass + " bg-[#181c28] border-[#2c3246] text-[#c4cada] font-bold"} />
               </div>
 
               {/* QUANTITY */}
-
-              <div className="form-field">
-
-                <label>
-                  Quantity *
-                </label>
-
-                <input
-                  type="number"
-                  name="quantity"
-                  value={
-                    formData.quantity
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Enter quantity"
-                  min="1"
-                  step="1"
-                  required
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Quantity *</label>
+                <input type="number" name="quantity" value={formData.quantity} onChange={handleChange} placeholder="Enter quantity" min="1" step="1" required className={inputClass} />
               </div>
 
               {/* SELLING PRICE */}
-
-              <div className="form-field">
-
-                <label>
-                  Selling Price (PKR) *
-                </label>
-
-                <input
-                  type="number"
-                  name="sellingPrice"
-                  value={
-                    formData.sellingPrice
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Enter selling price"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Selling Price (PKR) *</label>
+                <input type="number" name="sellingPrice" value={formData.sellingPrice} onChange={handleChange} placeholder="Enter selling price" min="0" step="0.01" required className={inputClass} />
               </div>
 
               {/* NEW SALE TOTAL */}
-
-              <div className="form-field">
-
-                <label>
-                  New Sale Total
-                </label>
-
-                <input
-                  type="text"
-                  value={formatPKR(
-                    totalAmount
-                  )}
-                  readOnly
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>New Sale Total</label>
+                <input type="text" value={formatPKR(totalAmount)} readOnly className={inputClass + " bg-[#10141d]"} />
               </div>
 
               {/* TOTAL DUE */}
-
-              <div className="form-field">
-
-                <label>
-                  Total Due
-                </label>
-
-                <input
-                  type="text"
-                  value={formatPKR(
-                    totalDue
-                  )}
-                  readOnly
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Total Due</label>
+                <input type="text" value={formatPKR(totalDue)} readOnly className={inputClass + " bg-[#10141d]"} />
               </div>
 
               {/* PAID NOW */}
-
-              <div className="form-field">
-
-                <label>
-                  Paid Now (PKR)
-                </label>
-
-                <input
-                  type="number"
-                  name="amountPaid"
-                  value={
-                    formData.amountPaid
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder={
-                    formData.customerName
-                      ? "Amount customer pays"
-                      : "Full amount"
-                  }
-                  min="0"
-                  step="0.01"
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Paid Now (PKR)</label>
+                <input type="number" name="amountPaid" value={formData.amountPaid} onChange={handleChange} placeholder={formData.customerName ? "Amount customer pays" : "Full amount"} min="0" step="0.01" className={inputClass} />
               </div>
 
               {/* REMAINING */}
-
-              <div className="form-field">
-
-                <label>
-                  Remaining Balance
-                </label>
-
-                <input
-                  type="text"
-                  value={formatPKR(
-                    remainingBalance
-                  )}
-                  readOnly
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Remaining Balance</label>
+                <input type="text" value={formatPKR(remainingBalance)} readOnly className={inputClass + " bg-[#10141d]"} />
               </div>
 
               {/* PROFIT */}
-
-              <div className="form-field">
-
-                <label>
-                  Estimated Profit (PKR)
-                </label>
-
-                <input
-                  type="text"
-                  value={formatPKR(
-                    estimatedProfit
-                  )}
-                  readOnly
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Estimated Profit (PKR)</label>
+                <input type="text" value={formatPKR(estimatedProfit)} readOnly className={inputClass + " bg-[#10141d]"} />
               </div>
 
               {/* SALE DATE */}
-
-              <div className="form-field">
-
-                <label>
-                  Sale Date
-                </label>
-
-                <input
-                  type="date"
-                  name="saleDate"
-                  value={
-                    formData.saleDate
-                  }
-                  onChange={
-                    handleChange
-                  }
-                />
-
+              <div className={formField}>
+                <label className={labelClass}>Sale Date</label>
+                <input type="date" name="saleDate" value={formData.saleDate} onChange={handleChange} className={inputClass} />
               </div>
 
               {/* NOTES */}
-
-              <div className="form-field full-width">
-
-                <label>
-                  Notes
-                </label>
-
-                <textarea
-                  name="notes"
-                  value={
-                    formData.notes
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Optional notes"
-                  rows="3"
-                />
-
+              <div className={formField + " " + fullWidthClass}>
+                <label className={labelClass}>Notes</label>
+                <textarea name="notes" value={formData.notes} onChange={handleChange} placeholder="Optional notes" rows="3" className={textareaClass} />
               </div>
-
             </div>
 
-            {/* ==================================
-                PAYMENT SUMMARY
-            ================================== */}
-
-            <div className="payment-summary">
-
-              <div>
-                <span>
-                  Previous Balance
-                </span>
-
-                <strong>
-                  {formatPKR(
-                    customerBalance
-                  )}
-                </strong>
+            {/* PAYMENT SUMMARY */}
+            <div className={paymentSummaryClass}>
+              <div className={paymentSummaryCell}>
+                <span className="block text-[#7c86a5] text-[7px] font-[800] uppercase">Previous Balance</span>
+                <strong className="block mt-1 text-[#dfe2ec] text-[10px]">{formatPKR(customerBalance)}</strong>
               </div>
-
-              <div>
-                <span>
-                  New Sale
-                </span>
-
-                <strong>
-                  {formatPKR(
-                    totalAmount
-                  )}
-                </strong>
+              <div className={paymentSummaryCell}>
+                <span className="block text-[#7c86a5] text-[7px] font-[800] uppercase">New Sale</span>
+                <strong className="block mt-1 text-[#dfe2ec] text-[10px]">{formatPKR(totalAmount)}</strong>
               </div>
-
-              <div>
-                <span>
-                  Total Due
-                </span>
-
-                <strong>
-                  {formatPKR(
-                    totalDue
-                  )}
-                </strong>
+              <div className={paymentSummaryCell}>
+                <span className="block text-[#7c86a5] text-[7px] font-[800] uppercase">Total Due</span>
+                <strong className="block mt-1 text-[#dfe2ec] text-[10px]">{formatPKR(totalDue)}</strong>
               </div>
-
-              <div>
-                <span>
-                  Paid Now
-                </span>
-
-                <strong>
-                  {formatPKR(
-                    paidAmount
-                  )}
-                </strong>
+              <div className={paymentSummaryCell}>
+                <span className="block text-[#7c86a5] text-[7px] font-[800] uppercase">Paid Now</span>
+                <strong className="block mt-1 text-[#dfe2ec] text-[10px]">{formatPKR(paidAmount)}</strong>
               </div>
-
-              <div>
-                <span>
-                  Remaining
-                </span>
-
-                <strong>
-                  {formatPKR(
-                    remainingBalance
-                  )}
-                </strong>
+              <div className={paymentSummaryCell + " bg-[#10251f]"}>
+                <span className="block text-[#7c86a5] text-[7px] font-[800] uppercase">Remaining</span>
+                <strong className="block mt-1 text-[#00c995] text-[10px]">{formatPKR(remainingBalance)}</strong>
               </div>
-
             </div>
 
-            {/* ==================================
-                BUTTONS
-            ================================== */}
-
-            <div className="form-actions">
-
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={
-                  cancelForm
-                }
-                disabled={saving}
-              >
-                Cancel
+            {/* BUTTONS */}
+            <div className={formActionsClass}>
+              <button type="button" className={secondaryButton} onClick={cancelForm} disabled={saving}>Cancel</button>
+              <button type="submit" className={primaryButton} disabled={saving}>
+                {saving ? (editingSaleId ? "Updating..." : "Saving...") : editingSaleId ? "Update Sale" : "Save Sale"}
               </button>
-
-              <button
-                type="submit"
-                className="primary-button"
-                disabled={saving}
-              >
-                {saving
-                  ? editingSaleId
-                    ? "Updating..."
-                    : "Saving..."
-                  : editingSaleId
-                  ? "Update Sale"
-                  : "Save Sale"}
-              </button>
-
             </div>
-
           </form>
-
         </div>
       )}
 
-      <div className="sales-table-card customer-list-card">
-        <div className="table-header">
-          <h2>Customers</h2>
-          <span>{customers.length} customer{customers.length !== 1 ? "s" : ""}</span>
+      <div className={tableCard}>
+        <div className={tableHeaderClass}>
+          <h2 className={tableHeaderH2}>Customers</h2>
+          <span className={tableBadge}>{customers.length} customer{customers.length !== 1 ? "s" : ""}</span>
         </div>
-        <div className="sales-table-wrapper">
-          <table className="sales-table">
-            <thead><tr><th>Customer Name</th><th>Phone</th><th>Current Outstanding</th><th>Actions</th></tr></thead>
+        <div className={tableWrapper}>
+          <table className="w-full min-w-[620px] table-fixed border-collapse">
+            <thead>
+              <tr>
+                <th className={thClass}>Customer Name</th>
+                <th className={thClass}>Phone</th>
+                <th className={thClass}>Current Outstanding</th>
+                <th className={thClass}>Actions</th>
+              </tr>
+            </thead>
             <tbody>
               {customers.map((customer) => (
                 <tr key={customer._id}>
-                  <td>{customer.name}</td>
-                  <td>{customer.phone || "-"}</td>
-                  <td>{formatPKR(customer.balance)}</td>
-                  <td><button type="button" className="secondary-button" onClick={() => openCustomerAccount(customer._id)}>View</button></td>
+                  <td className={tdClass}>{customer.name}</td>
+                  <td className={tdClass}>{customer.phone || "-"}</td>
+                  <td className={tdClass}>{formatPKR(customer.balance)}</td>
+                  <td className={tdClass}><button type="button" className={secondaryButton} onClick={() => openCustomerAccount(customer._id)}>View</button></td>
                 </tr>
               ))}
-              {customers.length === 0 && <tr><td colSpan="4">No customers yet.</td></tr>}
+              {customers.length === 0 && (
+                <tr>
+                  <td className={tdClass} colSpan="4">No customers yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -2055,210 +1804,58 @@ function Sales() {
           SALES HISTORY
       ====================================== */}
 
-      <div className="sales-table-card">
-
-        <div className="table-header">
-
-          <h2>
-            Sales History
-          </h2>
-
-          <span>
-            {sales.length} sale
-            {sales.length !== 1
-              ? "s"
-              : ""}
-          </span>
-
+      <div className={tableCard}>
+        <div className={tableHeaderClass}>
+          <h2 className={tableHeaderH2}>Sales History</h2>
+          <span className={tableBadge}>{sales.length} sale{sales.length !== 1 ? "s" : ""}</span>
         </div>
 
         {sales.length === 0 ? (
-
-          <div className="empty-state">
-
-            <h3>
-              No sales found
-            </h3>
-
-            <p>
-              Click "Add Sale" to
-              record your first
-              sale.
-            </p>
-
+          <div className="min-h-[170px] flex flex-col items-center justify-center p-[28px_18px] text-[#7c86a5] text-center">
+            <h3 className="m-0 text-[#dfe2ec] text-[12px]">No sales found</h3>
+            <p className="max-w-[300px] m-0 text-[9px] leading-[1.5]">Click "Add Sale" to record your first sale.</p>
           </div>
-
         ) : (
-
-          <div className="sales-table-wrapper">
-
-            <table className="sales-table">
-
+          <div className={tableWrapper}>
+            <table className="w-full min-w-[1180px] table-fixed border-collapse">
               <thead>
-
                 <tr>
-
-                  <th>
-                    Product
-                  </th>
-
-                  <th>
-                    SKU
-                  </th>
-
-                  <th>
-                    Customer
-                  </th>
-
-                  <th>
-                    Quantity
-                  </th>
-
-                  <th>
-                    Selling Price
-                  </th>
-
-                  <th>
-                    Total
-                  </th>
-
-                  <th>
-                    Paid
-                  </th>
-
-                  <th>
-                    Remaining
-                  </th>
-
-                  <th>
-                    Profit
-                  </th>
-
-                  <th>
-                    Date
-                  </th>
-
-                  <th>
-                    Invoice
-                  </th>
-
+                  <th className={thClass}>Product</th>
+                  <th className={thClass}>SKU</th>
+                  <th className={thClass}>Customer</th>
+                  <th className={thClass}>Quantity</th>
+                  <th className={thClass}>Selling Price</th>
+                  <th className={thClass}>Total</th>
+                  <th className={thClass}>Paid</th>
+                  <th className={thClass}>Remaining</th>
+                  <th className={thClass}>Profit</th>
+                  <th className={thClass}>Date</th>
+                  <th className={thClass}>Invoice</th>
                 </tr>
-
               </thead>
-
               <tbody>
-
-                {sales.map(
-                  (sale) => (
-
-                    <tr
-                      key={
-                        sale._id
-                      }
-                    >
-
-                      <td>
-                        {sale.product?.name ||
-                          "Unknown Product"}
-                      </td>
-
-                      <td>
-                        {sale.product?.sku ||
-                          "-"}
-                      </td>
-
-                      <td>
-                        {sale.customerName ||
-                          "Walk-in Customer"}
-                      </td>
-
-                      <td>
-                        {sale.quantity}
-                      </td>
-
-                      <td>
-                        {formatPKR(
-                          sale.sellingPrice
-                        )}
-                      </td>
-
-                      <td>
-                        {formatPKR(
-                          sale.totalAmount
-                        )}
-                      </td>
-
-                      <td>
-                        {formatPKR(
-                          sale.amountPaid
-                        )}
-                      </td>
-
-                      <td>
-                        {formatPKR(
-                          sale.remainingBalance
-                        )}
-                      </td>
-
-                      <td>
-                        {formatPKR(
-                          sale.profit
-                        )}
-                      </td>
-
-                      <td>
-                        {sale.saleDate
-                          ? new Date(
-                              sale.saleDate
-                            ).toLocaleDateString()
-                          : "-"}
-                      </td>
-
-                      <td>
-
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() => {
-                            setInvoiceSale(
-                              sale
-                            );
-
-                            setInvoiceViewOnly(
-                              true
-                            );
-                          }}
-                        >
-                          View
-                        </button>
-
-                        <button
-                          type="button"
-                          className="invoice-button"
-                          onClick={() =>
-                            downloadInvoice(
-                              sale
-                            )
-                          }
-                        >
-                          Download
-                        </button>
-
-                      </td>
-
-                    </tr>
-
-                  )
-                )}
-
+                {sales.map((sale) => (
+                  <tr key={sale._id}>
+                    <td className={tdClass}>{sale.product?.name || "Unknown Product"}</td>
+                    <td className={tdClass}>{sale.product?.sku || "-"}</td>
+                    <td className={tdClass}>{sale.customerName || "Walk-in Customer"}</td>
+                    <td className={tdClass}>{sale.quantity}</td>
+                    <td className={tdClass}>{formatPKR(sale.sellingPrice)}</td>
+                    <td className={tdClass}>{formatPKR(sale.totalAmount)}</td>
+                    <td className={tdClass}>{formatPKR(sale.amountPaid)}</td>
+                    <td className={tdClass}>{formatPKR(sale.remainingBalance)}</td>
+                    <td className={tdClass}>{formatPKR(sale.profit)}</td>
+                    <td className={tdClass}>{sale.saleDate ? new Date(sale.saleDate).toLocaleDateString() : "-"}</td>
+                    <td className={tdClass}>
+                      <button type="button" className={secondaryButton} onClick={() => { setInvoiceSale(sale); setInvoiceViewOnly(true); }}>View</button>
+                      <button type="button" className={invoiceButton} onClick={() => downloadInvoice(sale)}>Download</button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
-
             </table>
-
           </div>
-
         )}
-
       </div>
 
       {/* ======================================
@@ -2266,14 +1863,12 @@ function Sales() {
       ====================================== */}
 
       {invoiceSale && (
-
-        <div className="invoice-modal-overlay">
-
-          <div className="invoice-modal">
+        <div className={invoiceOverlay}>
+          <div className={invoiceModalClass}>
 
             {/* HEADER */}
 
-            <div className="invoice-modal-header">
+            <div className="flex items-start justify-between gap-4 p-3 border-b border-[#232839] bg-[rgba(18,22,32,0.97)] backdrop-blur-sm">
 
               <div>
 
@@ -2291,7 +1886,7 @@ function Sales() {
 
               <button
                 type="button"
-                className="close-button"
+                className={closeButtonClass}
                 onClick={
                   closeInvoice
                 }
@@ -2308,9 +1903,8 @@ function Sales() {
                 INVOICE
             ================================== */}
 
-            <div className="invoice-preview">
-
-              <div className="invoice-preview-top">
+            <div className={invoicePreview}>
+              <div className={invoiceTop}>
 
                 <div>
 
@@ -2324,7 +1918,7 @@ function Sales() {
 
                 </div>
 
-                <div className="invoice-number">
+                <div className={invoiceNumberClass}>
 
                   <strong>
                     INVOICE
@@ -2345,7 +1939,7 @@ function Sales() {
 
               {/* BILL TO */}
 
-              <div className="invoice-info">
+              <div className={invoiceInfoClass}>
 
                 <div>
 
@@ -2389,7 +1983,7 @@ function Sales() {
 
               {/* PRODUCT */}
 
-              <div className="invoice-product">
+              <div className={invoiceProductClass}>
 
                 <div>
 
@@ -2451,7 +2045,7 @@ function Sales() {
                   CASH FLOW
               ================================== */}
 
-              <div className="invoice-cash-flow">
+              <div className={invoiceCashFlowClass}>
 
                 <div>
 
@@ -2516,18 +2110,9 @@ function Sales() {
 
                 </div>
 
-                <div className="remaining-row">
-
-                  <span>
-                    Remaining Balance
-                  </span>
-
-                  <strong>
-                    {formatPKR(
-                      invoiceSale.remainingBalance
-                    )}
-                  </strong>
-
+                <div className="col-span-full bg-[#10251f] p-2.5">
+                  <span className="text-[#7c86a5] text-[8px] font-[700] uppercase">Remaining Balance</span>
+                  <strong className="text-[#00c995]">{formatPKR(invoiceSale.remainingBalance)}</strong>
                 </div>
 
               </div>
@@ -2536,7 +2121,7 @@ function Sales() {
 
               {invoiceSale.notes && (
 
-                <div className="invoice-notes">
+                <div className={invoiceNotesClass}>
 
                   <span>
                     Notes
@@ -2554,12 +2139,7 @@ function Sales() {
 
               {/* FOOTER */}
 
-              <div className="invoice-thank-you">
-
-                Thank you for your
-                business.
-
-              </div>
+              <div className={invoiceThankYouClass}>Thank you for your business.</div>
 
             </div>
 
@@ -2567,24 +2147,11 @@ function Sales() {
                 ACTIONS
             ================================== */}
 
-            <div className="invoice-modal-actions">
+            <div className={invoiceActionsClass}>
 
               {invoiceViewOnly ? (
 
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    downloadInvoice(
-                      invoiceSale
-                    )
-                  }
-                  disabled={
-                    finalizing
-                  }
-                >
-                  Download Invoice
-                </button>
+                <button type="button" className={secondaryButton} onClick={() => downloadInvoice(invoiceSale)} disabled={finalizing}>Download Invoice</button>
 
               ) : (
 
@@ -2592,52 +2159,15 @@ function Sales() {
 
                   {/* EDIT */}
 
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={
-                      handleEditInvoice
-                    }
-                    disabled={
-                      finalizing
-                    }
-                  >
-                    Edit
-                  </button>
+                  <button type="button" className={secondaryButton} onClick={handleEditInvoice} disabled={finalizing}>Edit</button>
 
                   {/* DOWNLOAD */}
 
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() =>
-                      downloadInvoice(
-                        invoiceSale
-                      )
-                    }
-                    disabled={
-                      finalizing
-                    }
-                  >
-                    Download Invoice
-                  </button>
+                  <button type="button" className={secondaryButton} onClick={() => downloadInvoice(invoiceSale)} disabled={finalizing}>Download Invoice</button>
 
                   {/* CONFIRM */}
 
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={
-                      handleDoneInvoice
-                    }
-                    disabled={
-                      finalizing
-                    }
-                  >
-                    {finalizing
-                      ? "Completing..."
-                      : "Confirm"}
-                  </button>
+                  <button type="button" className={primaryButton} onClick={handleDoneInvoice} disabled={finalizing}>{finalizing ? "Completing..." : "Confirm"}</button>
 
                 </>
 
@@ -2652,40 +2182,67 @@ function Sales() {
       )}
 
       {showNewCustomer && (
-        <div className="invoice-modal-overlay">
-          <form className="invoice-modal customer-modal" onSubmit={createCustomer}>
-            <div className="invoice-modal-header">
-              <div><h2>New Customer</h2><p>Create and select a customer for this sale.</p></div>
-              <button type="button" className="close-button" onClick={() => setShowNewCustomer(false)}>×</button>
+        <div className={invoiceOverlay}>
+          <form className={`${invoiceModalClass} max-w-[470px]`} onSubmit={createCustomer}>
+            <div className="flex items-start justify-between gap-4 p-3 border-b border-[#232839] bg-[rgba(18,22,32,0.97)] backdrop-blur-sm">
+              <div>
+                <h2 className="m-0 text-[#f1f2f6] text-[14px]">New Customer</h2>
+                <p className="m-0 text-[#7c86a5] text-[8px]">Create and select a customer for this sale.</p>
+              </div>
+              <button type="button" className={closeButtonClass} onClick={() => setShowNewCustomer(false)}>×</button>
             </div>
-            <div className="invoice-preview customer-form-fields">
-              <label>Name *<input required value={newCustomer.name} onChange={(event) => setNewCustomer((previous) => ({ ...previous, name: event.target.value }))} /></label>
-              <label>Phone<input value={newCustomer.phone} onChange={(event) => setNewCustomer((previous) => ({ ...previous, phone: event.target.value }))} /></label>
+            <div className={invoicePreview + " customer-form-fields"}>
+              <label className="grid gap-1">
+                <span className="text-[9px] font-bold text-[#aeb5ca]">Name *</span>
+                <input required value={newCustomer.name} onChange={(event) => setNewCustomer((previous) => ({ ...previous, name: event.target.value }))} className={inputClass} />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-[9px] font-bold text-[#aeb5ca]">Phone</span>
+                <input value={newCustomer.phone} onChange={(event) => setNewCustomer((previous) => ({ ...previous, phone: event.target.value }))} className={inputClass} />
+              </label>
             </div>
-            <div className="invoice-modal-actions"><button type="button" className="secondary-button" onClick={() => setShowNewCustomer(false)}>Cancel</button><button className="primary-button" type="submit">Create Customer</button></div>
+            <div className={invoiceActionsClass}><button type="button" className={secondaryButton} onClick={() => setShowNewCustomer(false)}>Cancel</button><button className={primaryButton} type="submit">Create Customer</button></div>
           </form>
         </div>
       )}
 
       {customerAccount && (
-        <div className="invoice-modal-overlay">
-          <div className="invoice-modal customer-account-modal">
-            <div className="invoice-modal-header">
-              <div><h2>{customerAccount.customer.name}</h2><p>{customerAccount.customer.phone || "No phone number"} · Outstanding: {formatPKR(customerAccount.customer.balance)}</p></div>
-              <button type="button" className="close-button" onClick={() => setCustomerAccount(null)}>×</button>
+        <div className={invoiceOverlay}>
+          <div className={`${invoiceModalClass} max-w-[820px]`}>
+            <div className="flex items-start justify-between gap-4 p-3 border-b border-[#232839] bg-[rgba(18,22,32,0.97)] backdrop-blur-sm">
+              <div>
+                <h2 className="m-0 text-[#f1f2f6] text-[14px]">{customerAccount.customer.name}</h2>
+                <p className="m-0 text-[#7c86a5] text-[8px]">{customerAccount.customer.phone || "No phone number"} · Outstanding: {formatPKR(customerAccount.customer.balance)}</p>
+              </div>
+              <button type="button" className={closeButtonClass} onClick={() => setCustomerAccount(null)}>×</button>
             </div>
-            <form className="receive-payment" onSubmit={receivePayment}>
-              <label>Receive Payment (PKR)<input required min="0.01" max={customerAccount.customer.balance} step="0.01" type="number" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} /></label>
-              <button type="submit" className="primary-button">Record Payment</button>
+            <form className="grid grid-cols-[1fr_auto] items-end gap-2 p-3 border-b border-[#232839]" onSubmit={receivePayment}>
+              <label className="grid gap-1 text-[9px] font-bold text-[#aeb5ca]">Receive Payment (PKR)<input required min="0.01" max={customerAccount.customer.balance} step="0.01" type="number" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} className={inputClass} /></label>
+              <button type="submit" className={primaryButton}>Record Payment</button>
             </form>
-            <div className="sales-table-wrapper account-history">
-              <table className="sales-table">
-                <thead><tr><th>Date</th><th>Type</th><th>Sale</th><th>Payment</th><th>Balance</th></tr></thead>
-                <tbody>{customerAccount.transactions.map((transaction) => (
-                  <tr key={transaction._id}><td>{new Date(transaction.createdAt).toLocaleDateString()}</td><td>{transaction.type === "sale" ? "Sale" : "Payment"}</td><td>{transaction.type === "sale" ? formatPKR(transaction.sale?.totalAmount || transaction.amount) : "-"}</td><td>{transaction.type === "sale" ? formatPKR(transaction.sale?.amountPaid || 0) : formatPKR(transaction.amount)}</td><td>{formatPKR(transaction.balanceAfter)}</td></tr>
-                ))}</tbody>
-              </table>
-            </div>
+            <div className={tableWrapper + " mt-3 border rounded-[8px]"}>
+              <table className="w-full min-w-[600px] table-fixed border-collapse">
+                <thead>
+                  <tr>
+                    <th className={thClass}>Date</th>
+                    <th className={thClass}>Type</th>
+                    <th className={thClass}>Sale</th>
+                    <th className={thClass}>Payment</th>
+                    <th className={thClass}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customerAccount.transactions.map((transaction) => (
+                    <tr key={transaction._id}>
+                      <td className={tdClass}>{new Date(transaction.createdAt).toLocaleDateString()}</td>
+                      <td className={tdClass}>{transaction.type === "sale" ? "Sale" : "Payment"}</td>
+                      <td className={tdClass}>{transaction.type === "sale" ? formatPKR(transaction.sale?.totalAmount || transaction.amount) : "-"}</td>
+                      <td className={tdClass}>{transaction.type === "sale" ? formatPKR(transaction.sale?.amountPaid || 0) : formatPKR(transaction.amount)}</td>
+                      <td className={tdClass}>{formatPKR(transaction.balanceAfter)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table></div>
           </div>
         </div>
       )}

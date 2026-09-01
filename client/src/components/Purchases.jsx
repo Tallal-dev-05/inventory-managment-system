@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./Purchases.css";
 import { formatPKR } from "../utils/currency";
 import { api } from "../utils/api";
 
 function Purchases() {
   const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
   const [purchases, setPurchases] = useState([]);
 
@@ -204,7 +204,6 @@ function Purchases() {
 
       setSuccess("Purchase created successfully!");
 
-      // Reset form
       setFormData({
         productId: "",
         supplierName: "",
@@ -216,7 +215,6 @@ function Purchases() {
 
       setShowForm(false);
 
-      // Reload products and purchases
       await Promise.all([
         getProducts(),
         getPurchases(),
@@ -254,36 +252,60 @@ function Purchases() {
 
   if (loading) {
     return (
-      <div className="purchases-page">
-        <h1>Purchases</h1>
-        <p>Loading purchases...</p>
+      <div className="min-h-screen w-full bg-[#0b0e13] text-[#e8eaf2] flex flex-col items-center justify-center gap-3 font-sans text-[10px]">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[#232839] border-t-[#6865f5] animate-spin" />
+        <p className="text-[#7c86a5] font-semibold">
+          Loading purchases...
+        </p>
       </div>
     );
   }
 
   // ==========================================
-  // PAGE
+  // SHARED CLASSES
   // ==========================================
 
+  const inputClass =
+    "w-full min-w-0 h-[34px] px-[10px] border border-[#232839] rounded-[7px] outline-none bg-[#10141d] text-[#e8eaf2] text-[10px] transition-all focus:border-[#6865f5] focus:ring-[3px] focus:ring-[#6865f5]/15 placeholder:text-[#5f6882]";
+
+  const labelClass =
+    "text-[#aeb5ca] text-[9px] font-bold";
+
+  const primaryButton =
+    "min-h-[34px] px-[13px] rounded-[7px] border border-[#6865f5] bg-[#6865f5] text-white text-[9px] font-bold cursor-pointer transition-all hover:bg-[#7773ff] hover:border-[#7773ff] hover:-translate-y-[1px] disabled:opacity-55 disabled:cursor-not-allowed disabled:transform-none";
+
+  const secondaryButton =
+    "min-h-[34px] px-[13px] rounded-[7px] border border-[#2c3246] bg-[#1a1f2e] text-[#bbc2db] text-[9px] font-bold cursor-pointer transition-all hover:border-[#3a425a] hover:bg-[#22283a] disabled:opacity-55 disabled:cursor-not-allowed";
+
   return (
-    <div className="purchases-page">
+    <div className="w-full min-h-screen m-0 px-[26px] pt-[22px] pb-[30px] bg-[#0b0e13] text-[#e8eaf2] font-sans text-[11px] overflow-x-hidden">
 
-      {/* HEADER */}
+      {/* ==========================================
+          HEADER
+      ========================================== */}
 
-      <div className="purchases-header">
+      <div className="min-h-[64px] flex items-start justify-between gap-[18px] mb-[20px] pb-[17px] border-b border-[#232839]">
+
         <div>
-          <button className="dashboard-back-button" type="button" onClick={() => navigate("/admin")}>Back to dashboard</button>
-          <h1 className="purchases-title">
+          <button
+            type="button"
+            onClick={() => navigate("/admin")}
+            className="p-0 border-0 bg-transparent text-[#8582ff] text-[9px] font-bold cursor-pointer hover:text-[#aaa8ff]"
+          >
+            ← <span className="ml-[3px]">Back to dashboard</span>
+          </button>
+
+          <h1 className="mt-[7px] mb-[3px] text-[#f2f3f7] text-[20px] leading-[1.2] tracking-[-0.5px] font-semibold">
             Purchases
           </h1>
 
-          <p className="purchases-subtitle">
+          <p className="m-0 text-[#7c86a5] text-[10px] leading-[1.5]">
             Record products received from suppliers
           </p>
         </div>
 
         <button
-          className="primary-button"
+          className={primaryButton}
           onClick={() => {
             setShowForm(true);
             setError("");
@@ -294,36 +316,46 @@ function Purchases() {
         </button>
       </div>
 
-      {/* SUCCESS */}
+      {/* ==========================================
+          SUCCESS
+      ========================================== */}
 
       {success && (
-        <div className="success-box">
+        <div className="mb-[15px] px-[12px] py-[10px] border border-[#075844] rounded-[7px] bg-[#07372d] text-[#00c995] text-[9px] leading-[1.5]">
           {success}
         </div>
       )}
 
-      {/* ERROR */}
+      {/* ==========================================
+          ERROR
+      ========================================== */}
 
       {error && (
-        <div className="error-box">
+        <div className="mb-[15px] px-[12px] py-[10px] border border-[#64323c] rounded-[7px] bg-[#28171d] text-[#ff8b96] text-[9px] leading-[1.5]">
           {error}
         </div>
       )}
 
-      {/* ======================================
+      {/* ==========================================
           ADD PURCHASE FORM
-      ====================================== */}
+      ========================================== */}
 
       {showForm && (
-        <div className="purchase-form-card">
+        <div className="mb-[18px] p-[17px] border border-[#232839] rounded-[10px] bg-[#121620]">
 
-          <div className="purchase-form-header">
-            <h2>Add Purchase</h2>
+          <div className="flex items-start justify-between gap-[16px] mb-[15px] pb-[12px] border-b border-[#232839]">
+
+            <div>
+              <h2 className="m-0 text-[#f0f1f6] text-[14px] leading-[1.3] font-semibold">
+                Add Purchase
+              </h2>
+            </div>
 
             <button
               type="button"
-              className="close-button"
               onClick={cancelForm}
+              aria-label="Close"
+              className="w-[27px] h-[27px] grid place-items-center shrink-0 p-0 border border-[#2b3144] rounded-[7px] bg-[#1a1f2e] text-[#9aa3bf] text-[18px] leading-none cursor-pointer hover:border-[#63343c] hover:bg-[#2a181e] hover:text-[#f46b78]"
             >
               ×
             </button>
@@ -331,12 +363,12 @@ function Purchases() {
 
           <form onSubmit={handleSubmit}>
 
-            <div className="purchase-form-grid">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[13px]">
 
               {/* PRODUCT */}
 
-              <div className="form-field">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <label className={labelClass}>
                   Product *
                 </label>
 
@@ -345,6 +377,7 @@ function Purchases() {
                   value={formData.productId}
                   onChange={handleProductChange}
                   required
+                  className={`${inputClass} cursor-pointer`}
                 >
                   <option value="">
                     Select product
@@ -354,6 +387,7 @@ function Purchases() {
                     <option
                       key={product._id}
                       value={product._id}
+                      className="bg-[#121620] text-[#e8eaf2]"
                     >
                       {product.name} ({product.sku})
                     </option>
@@ -363,8 +397,8 @@ function Purchases() {
 
               {/* SUPPLIER */}
 
-              <div className="form-field">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <label className={labelClass}>
                   Supplier Name *
                 </label>
 
@@ -375,13 +409,14 @@ function Purchases() {
                   onChange={handleChange}
                   placeholder="Enter supplier name"
                   required
+                  className={inputClass}
                 />
               </div>
 
               {/* QUANTITY */}
 
-              <div className="form-field">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <label className={labelClass}>
                   Quantity *
                 </label>
 
@@ -394,13 +429,14 @@ function Purchases() {
                   min="1"
                   step="1"
                   required
+                  className={inputClass}
                 />
               </div>
 
               {/* COST PRICE */}
 
-              <div className="form-field">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <label className={labelClass}>
                   Cost Price (PKR) *
                 </label>
 
@@ -413,13 +449,14 @@ function Purchases() {
                   min="0"
                   step="0.01"
                   required
+                  className={inputClass}
                 />
               </div>
 
               {/* PURCHASE DATE */}
 
-              <div className="form-field">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <label className={labelClass}>
                   Purchase Date
                 </label>
 
@@ -428,13 +465,14 @@ function Purchases() {
                   name="purchaseDate"
                   value={formData.purchaseDate}
                   onChange={handleChange}
+                  className={`${inputClass} [color-scheme:dark]`}
                 />
               </div>
 
               {/* TOTAL */}
 
-              <div className="form-field">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px]">
+                <label className={labelClass}>
                   Total Amount (PKR)
                 </label>
 
@@ -442,13 +480,14 @@ function Purchases() {
                   type="text"
                   value={formatPKR(totalAmount)}
                   readOnly
+                  className="w-full h-[34px] px-[10px] border border-[#2c3246] rounded-[7px] outline-none bg-[#181c28] text-[#00c995] text-[10px] font-bold cursor-default"
                 />
               </div>
 
               {/* NOTES */}
 
-              <div className="form-field full-width">
-                <label>
+              <div className="min-w-0 flex flex-col gap-[5px] md:col-span-2 lg:col-span-3">
+                <label className={labelClass}>
                   Notes
                 </label>
 
@@ -458,6 +497,7 @@ function Purchases() {
                   onChange={handleChange}
                   placeholder="Optional notes"
                   rows="3"
+                  className={`${inputClass} h-auto min-h-[65px] py-[9px] leading-[1.5] resize-y`}
                 />
               </div>
 
@@ -465,11 +505,11 @@ function Purchases() {
 
             {/* FORM BUTTONS */}
 
-            <div className="form-actions">
+            <div className="flex justify-end gap-[8px] mt-[16px] pt-[13px] border-t border-[#232839]">
 
               <button
                 type="button"
-                className="secondary-button"
+                className={secondaryButton}
                 onClick={cancelForm}
                 disabled={saving}
               >
@@ -478,12 +518,10 @@ function Purchases() {
 
               <button
                 type="submit"
-                className="primary-button"
+                className={primaryButton}
                 disabled={saving}
               >
-                {saving
-                  ? "Saving..."
-                  : "Save Purchase"}
+                {saving ? "Saving..." : "Save Purchase"}
               </button>
 
             </div>
@@ -492,80 +530,121 @@ function Purchases() {
         </div>
       )}
 
-      {/* ======================================
+      {/* ==========================================
           PURCHASE HISTORY
-      ====================================== */}
+      ========================================== */}
 
-      <div className="purchases-table-card">
+      <div className="w-full min-w-0 overflow-hidden border border-[#232839] rounded-[10px] bg-[#121620]">
 
-        <div className="table-header">
-          <h2>Purchase History</h2>
+        {/* TABLE HEADER */}
 
-          <span>
+        <div className="min-h-[54px] flex items-center justify-between gap-[15px] px-[15px] py-[12px] border-b border-[#232839]">
+
+          <h2 className="m-0 text-[#f0f1f6] text-[13px] font-semibold">
+            Purchase History
+          </h2>
+
+          <span className="shrink-0 px-[8px] py-[4px] rounded-full bg-[#202441] text-[#9592ff] text-[8px] font-bold">
             {purchases.length} purchase
             {purchases.length !== 1 ? "s" : ""}
           </span>
+
         </div>
 
-        {purchases.length === 0 ? (
-          <div className="empty-state">
-            <h3>No purchases found</h3>
+        {/* EMPTY */}
 
-            <p>
-              Click "Add Purchase" to record your
-              first purchase.
+        {purchases.length === 0 ? (
+          <div className="min-h-[180px] flex flex-col items-center justify-center px-[18px] py-[30px] text-center text-[#7c86a5]">
+
+            <h3 className="m-0 mb-[5px] text-[#e8eaf2] text-[12px] font-semibold">
+              No purchases found
+            </h3>
+
+            <p className="m-0 text-[9px]">
+              Click "Add Purchase" to record your first purchase.
             </p>
+
           </div>
         ) : (
-          <div className="purchases-table-wrapper">
 
-            <table className="purchases-table">
+          /* TABLE */
+
+          <div className="w-full max-w-full overflow-x-auto overflow-y-hidden">
+
+            <table className="w-full min-w-[900px] table-fixed border-spacing-0 border-collapse">
 
               <thead>
                 <tr>
-                  <th>Product</th>
-                  <th>SKU</th>
-                  <th>Supplier</th>
-                  <th>Quantity</th>
-                  <th>Cost Price (PKR)</th>
-                  <th>Total (PKR)</th>
-                  <th>Date</th>
-                  <th>Notes</th>
+
+                  <th className="w-[17%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Product
+                  </th>
+
+                  <th className="w-[10%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    SKU
+                  </th>
+
+                  <th className="w-[15%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Supplier
+                  </th>
+
+                  <th className="w-[9%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-center text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Quantity
+                  </th>
+
+                  <th className="w-[13%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Cost Price (PKR)
+                  </th>
+
+                  <th className="w-[13%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Total (PKR)
+                  </th>
+
+                  <th className="w-[11%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Date
+                  </th>
+
+                  <th className="w-[12%] h-[36px] px-[10px] border-b border-[#232839] bg-[#10131a] text-[#747e9d] text-left text-[7px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap">
+                    Notes
+                  </th>
+
                 </tr>
               </thead>
 
               <tbody>
 
                 {purchases.map((purchase) => (
-                  <tr key={purchase._id}>
+                  <tr
+                    key={purchase._id}
+                    className="bg-transparent hover:bg-[#171b27] transition-colors"
+                  >
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#dfe2ec] text-[9px] font-bold whitespace-nowrap text-ellipsis">
                       {purchase.product?.name ||
                         "Unknown Product"}
                     </td>
 
-                    <td>
-                      {purchase.product?.sku ||
-                        "-"}
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#7e89a8] text-[9px] font-mono whitespace-nowrap text-ellipsis">
+                      {purchase.product?.sku || "-"}
                     </td>
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#adb5ca] text-[9px] whitespace-nowrap text-ellipsis">
                       {purchase.supplierName}
                     </td>
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#e1e4ed] text-[9px] font-bold text-center whitespace-nowrap">
                       {purchase.quantity}
                     </td>
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#c0c7db] text-[9px] whitespace-nowrap text-ellipsis">
                       {formatPKR(purchase.costPrice)}
                     </td>
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#00c995] text-[9px] font-bold whitespace-nowrap text-ellipsis">
                       {formatPKR(purchase.totalAmount)}
                     </td>
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#adb5ca] text-[9px] whitespace-nowrap">
                       {purchase.purchaseDate
                         ? new Date(
                             purchase.purchaseDate
@@ -573,7 +652,7 @@ function Purchases() {
                         : "-"}
                     </td>
 
-                    <td>
+                    <td className="h-[50px] px-[10px] border-b border-[#202637] overflow-hidden text-[#7c86a5] text-[9px] whitespace-nowrap text-ellipsis">
                       {purchase.notes || "-"}
                     </td>
 
@@ -588,7 +667,6 @@ function Purchases() {
         )}
 
       </div>
-
     </div>
   );
 }
