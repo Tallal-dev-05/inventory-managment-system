@@ -13,7 +13,16 @@ function ProtectedRoute({ children, allowedRole }) {
   }, []);
 
   if (user === undefined) {
-    return <div role="status" aria-live="polite" style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "#667085" }}>Checking your session...</div>;
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-screen w-full bg-[#0b0e13] text-[#7c86a5] flex flex-col items-center justify-center gap-3 font-sans text-[10px]"
+      >
+        <div className="h-8 w-8 rounded-full border-[3px] border-[#232839] border-t-[#6865f5] animate-spin" />
+        <span>Checking session...</span>
+      </div>
+    );
   }
 
   // Not logged in

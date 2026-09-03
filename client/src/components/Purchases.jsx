@@ -3,6 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { formatPKR } from "../utils/currency";
 import { api } from "../utils/api";
 
+const getToday = () => new Date().toISOString().split("T")[0];
+
+const emptyPurchaseForm = {
+  productId: "",
+  supplierName: "",
+  quantity: "",
+  costPrice: "",
+  purchaseDate: getToday(),
+  notes: "",
+};
+
 function Purchases() {
   const navigate = useNavigate();
 
@@ -17,14 +28,7 @@ function Purchases() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [formData, setFormData] = useState({
-    productId: "",
-    supplierName: "",
-    quantity: "",
-    costPrice: "",
-    purchaseDate: "",
-    notes: "",
-  });
+  const [formData, setFormData] = useState(emptyPurchaseForm);
 
   // ==========================================
   // GET PRODUCTS
@@ -204,14 +208,7 @@ function Purchases() {
 
       setSuccess("Purchase created successfully!");
 
-      setFormData({
-        productId: "",
-        supplierName: "",
-        quantity: "",
-        costPrice: "",
-        purchaseDate: "",
-        notes: "",
-      });
+      setFormData(emptyPurchaseForm);
 
       setShowForm(false);
 
@@ -233,14 +230,7 @@ function Purchases() {
   function cancelForm() {
     setShowForm(false);
 
-    setFormData({
-      productId: "",
-      supplierName: "",
-      quantity: "",
-      costPrice: "",
-      purchaseDate: "",
-      notes: "",
-    });
+    setFormData(emptyPurchaseForm);
 
     setError("");
     setSuccess("");

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../utils/api";
+import { formatPKR } from "../utils/currency";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDebouncedValue } from "../utils/useDebouncedValue";
 
@@ -281,7 +282,7 @@ export default function Products() {
 
         <div>
           <button
-            onClick={() => navigate("/Admin")}
+            onClick={() => navigate("/admin")}
             className="p-0 border-0 bg-transparent text-[#8582ff] text-[9px] font-bold cursor-pointer hover:text-[#aaa8ff]"
           >
             ← <span className="ml-1">Back to dashboard</span>
@@ -647,18 +648,12 @@ export default function Products() {
                             {p.category}
                           </td>
 
-                          <td className="h-[51px] px-2.5 border-b border-[#202637] overflow-hidden text-[#adb5ca] text-[9px] whitespace-nowrap">
-                            <span className="text-[#69738f] text-[7px] font-bold">
-                              PKR{" "}
-                            </span>
-                            {Number(p.costPrice).toFixed(2)}
+                          <td className="h-[51px] px-2.5 border-b border-[#202637] overflow-hidden text-[#c0c7db] text-[9px] whitespace-nowrap">
+                            {formatPKR(p.costPrice)}
                           </td>
 
-                          <td className="h-[51px] px-2.5 border-b border-[#202637] overflow-hidden text-[#adb5ca] text-[9px] whitespace-nowrap">
-                            <span className="text-[#69738f] text-[7px] font-bold">
-                              PKR{" "}
-                            </span>
-                            {Number(p.sellingPrice).toFixed(2)}
+                          <td className="h-[51px] px-2.5 border-b border-[#202637] overflow-hidden text-[#00c995] text-[9px] font-bold whitespace-nowrap">
+                            {formatPKR(p.sellingPrice)}
                           </td>
 
                           <td className="h-[51px] px-2.5 border-b border-[#202637] text-center text-[#adb5ca] text-[9px]">

@@ -95,7 +95,7 @@ function SignIn() {
       } else {
         navigate("/items");
       }
-    } catch (error) {
+    } catch {
       setServerMessage(
         "Unable to connect to the server"
       );
